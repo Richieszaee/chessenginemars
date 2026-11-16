@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Bossfrommars Analysis Arrows",
-  "version": "1.5.0",
-  "description": "Shows Stockfish 19 Lite's top moves as arrows on Chess.com's analysis board, bot games and finished games.",
+  "version": "1.6.0",
+  "description": "Shows multi-threaded Stockfish NNUE top moves, WDL, PV lines and eval bar on Chess.com's analysis board, bot games and finished games.",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
   },
   "action": {
-    "default_title": "Bossfrommars Analysis Arrows",
+    "default_title": "Bossfrommars Analysis Arrows (click to toggle)",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png"
@@ -50,6 +50,12 @@
       "run_at": "document_idle"
     }
   ],
+  "cross_origin_embedder_policy": {
+    "value": "require-corp"
+  },
+  "cross_origin_opener_policy": {
+    "value": "same-origin"
+  },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   }
