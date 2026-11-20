@@ -4,37 +4,32 @@ A Chrome extension for **chess.com** that shows live Stockfish analysis *and* ch
 move labels while you play: **Brilliant**, **Great move**, **Best**, **Excellent**, **Book**,
 **Inaccuracy**, **Mistake**, **Blunder** and **Miss**.
 
-## Icons — chess.com's own artwork
+## Icons — chess.com's own badges
 
-The move labels use **chess.com's actual "Move Classification" vector files** (from their public
-brand assets), embedded verbatim in `icons.js` — the same 18x19 artwork, the same official fills,
-the same inner shadow and highlight. That is why the panel, the pop-up and the board badge look
-identical to Game Review.
+The move labels use **chess.com's own "Move Classification" badge artwork** — the exact PNGs
+from their published icon set (the same ones their Game Review shows), embedded in `icons.js` as
+inline data URIs so nothing can block them: no network requests, no page-CSP issues.
 
-| Icon | Label | Official fill |
+| Icon | Label | Disc colour |
 |---|---|---|
-| `!!` | **Brilliant** | `#1bada6` |
-| `!` | **Great move** | `#1bada6` |
-| ★ | **Best move** | `#96bc4b` |
-| 👍 | **Excellent** | `#96bc4b` |
-| ✓ | **Good** | `#96af8b` |
-| ▬ | **Book** | `#a88865` |
-| `?!` | **Inaccuracy** | `#f7c045` |
-| `?` | **Mistake** | `#e58f2a` |
-| ✗ | **Miss** | `#ca3431` |
-| `??` | **Blunder** | `#ca3431` |
-| ➡ | **Forced** | `#b0b0b0` (drawn to match) |
+| bright cyan `!!` | **Brilliant** | `#24afd8` |
+| steel-blue `!` | **Great move** | `#547591` |
+| green ★ | **Best move** | `#79ac45` |
+| green 👍 | **Excellent** | `#78ab45` |
+| sage ✓ | **Good** | `#738d5c` |
+| tan book | **Book** | `#d3a078` |
+| yellow `?!` | **Inaccuracy** | `#f0bc2a` |
+| orange `?` | **Mistake** | `#fe9e50` |
+| red `??` | **Blunder** | `#f03623` |
+| salmon ✗ | **Miss** | `#f66f61` |
+| green ➡ | **Forced** | `#8aa480` |
 
 They appear in four places: the pop-up, the last-move card, the recent-moves strip, and directly
-on the board — chess.com's coloured **square tint** on the destination square plus the disc badge
-in its corner.
+on the board — chess.com's coloured **square tint** on the squares of the graded move plus the
+badge in the destination square's corner.
 
-> Move-classification artwork © Chess.com, taken from their public brand resources and used here
-> for personal, non-commercial analysis. If you republish this, credit Chess.com.
-
----
-
-
+> Badge artwork © Chess.com, from their public icon set, used here for personal, non-commercial
+> analysis. Credit them if you republish this.
 
 ## What it does
 
@@ -70,7 +65,7 @@ Thresholds live in `review.js` (`classify()`), so they are easy to tune.
 
 ## Install (unpacked)
 
-1. Download `bossfrommars-analysis-2.2.0.zip` and unzip it (or use this repository folder).
+1. Download `bossfrommars-analysis-2.3.0.zip` and unzip it (or use this repository folder).
 2. Open `chrome://extensions`, enable **Developer mode**.
 3. **Load unpacked** → pick the unzipped folder (the one containing `manifest.json`).
 4. Open any chess.com analysis board, bot game, or finished game.
@@ -112,7 +107,7 @@ offscreen.html/js  runs Stockfish 19 Lite in a Web Worker
 page.js            MAIN-world script: reads chess.com's board object (FEN, flip)
 content.js         panel, arrows, eval bar, toast, label pipeline
 review.js          move classification (labels, book, sacrifice tests)
-icons.js           chess.com icon set (shapes + palette) as inline SVG
+icons.js           chess.com badge artwork (inline data URIs) + colours
 content.css        all UI styling
 chess.js           chess.js (move generation / SAN / PGN)
 stockfish-*.js/.wasm  Stockfish 19 Lite (single file, no threads)

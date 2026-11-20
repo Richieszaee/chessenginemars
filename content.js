@@ -636,7 +636,7 @@
     panel.querySelector('.bfm-recent').innerHTML = recent.length
       ? recent.map((r) => {
         const num = r.moveNo + (r.color === 'w' ? '.' : '…');
-        return `<span class="bfm-rm" data-q="${r.label}" title="${R.info(r.label).label}"><i>${num}</i>${r.san}${I.svg(r.label, 'bfm-rmi')}</span>`;
+        return `<span class="bfm-rm" data-q="${r.label}" title="${R.info(r.label).label}"><i>${num}</i>${r.san}${I.img(r.label, 'bfm-rmi')}</span>`;
       }).join('')
       : '';
 

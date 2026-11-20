@@ -85,6 +85,7 @@ const store = {};
 window.chrome = {
   storage: { local: { get: (k, cb) => setTimeout(() => cb({ bfm: store.bfm || { force: true } }), 0), set: (o) => { store.bfm = o.bfm; } } },
   runtime: {
+    // no getURL here: the preview is a plain page, icons.js falls back to ../img/
     connect() {
       const subs = []; let timer = null;
       return {
