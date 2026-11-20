@@ -1,0 +1,5 @@
+# build output (regenerate with ./build.sh)
+dist/
+# preview is a normal static page — no build step needed
+node_modules/
+.DS_Store

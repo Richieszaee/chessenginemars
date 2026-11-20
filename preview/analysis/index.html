@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bossfrommars Analysis — live preview</title>
+<link rel="stylesheet" href="../../content.css">
+<style>
+  html,body{margin:0;height:100%;overflow:hidden}
+  body{
+    background:
+      radial-gradient(1100px 700px at 25% -10%, #1d272e 0%, transparent 60%),
+      radial-gradient(900px 600px at 100% 100%, #172029 0%, transparent 55%),
+      #0a0d10;
+    color:#cfdae1;font:13px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  #bar{
+    position:fixed;inset:0 0 auto 0;height:52px;display:flex;align-items:center;gap:7px;
+    padding:0 16px;background:rgba(9,12,16,.88);border-bottom:1px solid #1b262e;
+    backdrop-filter:blur(12px);z-index:6;
+  }
+  #bar .brand{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#7e8f9b;margin-right:6px}
+  #bar button{
+    background:#151e25;color:#d7e3ea;border:1px solid #26333d;border-radius:8px;
+    padding:7px 11px;font:600 11.5px Inter,system-ui,sans-serif;cursor:pointer;
+    transition:background .15s,border-color .15s,transform .1s;
+  }
+  #bar button:hover{background:#1d2830;border-color:#37474f}
+  #bar button:active{transform:translateY(1px)}
+  #bar button.active{background:#22313a;border-color:#4a6472;color:#fff}
+  #board-wrap{position:absolute;left:56px;top:88px}
+  #board{
+    width:min(56vh,540px);height:min(56vh,540px);
+    display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
+    border-radius:8px;overflow:hidden;position:relative;
+    box-shadow:0 30px 70px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06);
+  }
+  .sq{position:relative;display:grid;place-items:center;font-size:min(5.4vh,52px);line-height:1;user-select:none}
+  .sq.l{background:#eeeed2}.sq.d{background:#769656}
+  .sq .pc{filter:drop-shadow(0 2px 3px rgba(0,0,0,.28))}
+  .sq .pc.w{color:#fff;-webkit-text-stroke:1.6px #41474c}
+  .sq .pc.b{color:#454b50;-webkit-text-stroke:1.6px #14181b}
+  .sq .coord{position:absolute;font-size:9px;font-weight:700;opacity:.55;color:#3e4a34}
+  .sq .coord.f{right:3px;bottom:1px}.sq .coord.r{left:3px;top:1px}
+  #status{
+    position:absolute;left:56px;bottom:22px;font-size:11.5px;color:#7b8b97;
+    max-width:620px;line-height:1.6;
+  }
+  #status b{color:#c9f07a;font-weight:700}
+  #status code{color:#8fb8d6;font-family:ui-monospace,Menlo,monospace;font-size:11px}
+  #players{display:flex;align-items:center;gap:9px;margin-bottom:10px;color:#94a5b1;font-size:11.5px}
+  #players .av{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,#3b4a56,#232d35);border:1px solid #36454f}
+  #players b{color:#e3ebef;font-weight:650}
+  #players .dot{width:8px;height:8px;border-radius:50%;background:#a4e05a;box-shadow:0 0 10px rgba(164,224,90,.7)}
+</style>
+</head>
+<body>
+<div id="bar">
+  <span class="brand">Preview</span>
+  <button data-sc="opening">Opening</button>
+  <button data-sc="brilliant">Brilliant</button>
+  <button data-sc="blunder">Blunder</button>
+  <button data-sc="mistake">Mistake</button>
+  <button data-sc="mate">Checkmate</button>
+  <button id="flip">Flip board</button>
+  <button id="settings">Toggle settings</button>
+  <span style="margin-left:auto;color:#5d6b76;font-size:11px">scripted engine — no real search</span>
+</div>
+
+<div id="board-wrap">
+  <div id="players"><span class="av"></span><b>bossfrommars</b> <span class="dot"></span> <span style="margin-left:auto">Stockfish 19 Lite</span></div>
+  <div id="board"></div>
+</div>
+<div id="status">Pick a scenario above.</div>
+
+<script src="../../chess.js"></script>
+<script src="../../review.js"></script>
+<script>
+/* ------------------------------------------------------------------
+   A tiny fake "chrome.*" + fake engine so content.js runs untouched.
+   FAKE maps a FEN to the multipv list the engine will report.
+------------------------------------------------------------------ */
+const FAKE = {};
+const store = {};
+window.chrome = {
+  storage: { local: { get: (k, cb) => setTimeout(() => cb({ bfm: store.bfm || { force: true } }), 0), set: (o) => { store.bfm = o.bfm; } } },
+  runtime: {
+    connect() {
+      const subs = []; let timer = null;
+      return {
+        onMessage: { addListener: (f) => subs.push(f) },
+        onDisconnect: { addListener: () => {} },
+        postMessage(m) {
+          if (m.type === 'stop') { clearInterval(timer); return; }
+          if (m.type !== 'go') return;
+          clearInterval(timer);
+          const spec = FAKE[m.fen] || { lines: [{ cp: 20, pv: 'e2e4' }] };
+          let depth = 0;
+          timer = setInterval(() => {
+            depth += 3;
+            const n = Math.max(1, Math.min(m.multipv, spec.lines.length));
+            for (let i = 0; i < n; i++) {
+              const L = spec.lines[i] || spec.lines[0];
+              subs.forEach((f) => f({
+                type: 'info', fen: m.fen, engine: 'Stockfish 19 Lite', depth, mpv: i + 1,
+                cp: L.mate === undefined ? L.cp : null,
+                mate: L.mate === undefined ? null : L.mate,
+                pv: L.pv.split(' '), nps: 1180000
+              }));
+            }
+            if (depth >= 18) { clearInterval(timer); subs.forEach((f) => f({ type: 'done', fen: m.fen })); }
+          }, 170);
+        }
+      };
+    }
+  }
+};
+</script>
+<script>
+/* ---------------- board rendering ---------------- */
+const GLYPH = { p:'♟',n:'♞',b:'♝',r:'♜',q:'♛',k:'♚',P:'♙',N:'♘',B:'♗',R:'♖',Q:'♕',K:'♔' };
+const boardEl = document.getElementById('board');
+boardEl.id = 'board-single';
+let flipped = false;
+let position = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+function renderBoard(fen) {
+  position = fen;
+  const grid = fen.split(' ')[0].split('/').map((row) => {
+    const cells = [];
+    for (const ch of row) { if (/\d/.test(ch)) for (let i = 0; i < +ch; i++) cells.push(null); else cells.push(ch); }
+    return cells;
+  });
+  boardEl.innerHTML = '';
+  const files = 'abcdefgh';
+  for (let vr = 0; vr < 8; vr++) {
+    for (let vf = 0; vf < 8; vf++) {
+      const r = flipped ? 7 - vr : vr, c = flipped ? 7 - vf : vf;
+      const d = document.createElement('div');
+      d.className = 'sq ' + ((r + c) % 2 ? 'd' : 'l') + ' square-' + (c + 1) + (8 - r);
+      if (vr === 7) d.insertAdjacentHTML('beforeend', '<span class="coord f">' + files[c] + '</span>');
+      if (vf === 0) d.insertAdjacentHTML('beforeend', '<span class="coord r">' + (8 - r) + '</span>');
+      const pc = grid[r][c];
+      if (pc) {
+        const p = document.createElement('div');
+        p.className = 'piece square-' + (c + 1) + (8 - r) + ' ' + (pc === pc.toUpperCase() ? 'w' : 'b') + pc.toLowerCase();
+        p.textContent = GLYPH[pc];
+        d.appendChild(p);
+      }
+      boardEl.appendChild(d);
+    }
+  }
+}
+setInterval(() => window.postMessage({ __bfm: 'pos', fen: position, over: false, flipped }, '*'), 120);
+</script>
+<script src="../../content.js"></script>
+<script>
+const statusEl = document.getElementById('status');
+const say = (html) => { statusEl.innerHTML = html; };
+
+/* ---------------- scenarios ---------------- */
+const SCEN = {
+  opening: {
+    note: 'The opening moves are recognised as <b>Book</b>… until theory runs out.',
+    steps: [
+      { from: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', evals: [{ cp: 30, pv: 'e2e4 e7e5 g1f3' }, { cp: 25, pv: 'd2d4 d7d5 c2c4' }, { cp: 20, pv: 'g1f3 g8f6 c2c4' }] },
+      { san: 'e4' }, { san: 'e5' }, { san: 'Nf3' }, { san: 'Nc6' }, { san: 'Bb5' }
+    ]
+  },
+  brilliant: {
+    note: 'A sacrifice that still wins: <b>Bxh7+</b> gives up a bishop and the engine loves it → <b>Brilliant</b>.',
+    steps: [
+      { fen: 'r1bq1rk1/1p1n1ppp/p1n1p3/2bpP3/3N1P2/2NBB3/PPPQ2PP/2KR3R b - - 1 11',
+        evals: [{ cp: 5, pv: 'h1g1 c5e3' }, { cp: -20, pv: 'c5e3 d2e3' }] },
+      { san: 'Kh8', evals: [{ cp: 250, pv: 'd3h7 h8h7 d2c3' }, { cp: -35, pv: 'c5e3 d2e3' }] },
+      { san: 'Bxh7+', evals: [{ cp: 300, pv: 'h8h7 d2c3 c5e3' }, { cp: -60, pv: 'h8g8 d3g6' }] }
+    ]
+  },
+  blunder: {
+    note: 'A knight jumps into a trap: the eval collapses → <b>Blunder</b>.',
+    steps: [
+      { fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4',
+        evals: [{ cp: 32, pv: 'b1c3 f8c5' }, { cp: 28, pv: 'd2d3 f8c5' }, { cp: 25, pv: 'e1g1 f8c5' }] },
+      { san: 'Ng5', evals: [{ cp: -640, pv: 'd7d5 e4d5 c6a5' }, { cp: -700, pv: 'f6e4 g5f7' }] }
+    ]
+  },
+  mistake: {
+    note: 'White is winning but gets careless → <b>Mistake</b> (the win probability drops a lot).',
+    steps: [
+      { fen: 'r1bq1rk1/pp2bppp/2p1pn2/3n4/3P1B2/1BN1PN2/PP3PPP/R2Q1RK1 w - - 3 11',
+        evals: [{ cp: 320, pv: 'f3e5 f6e4' }, { cp: 300, pv: 'a1c1 d8a5' }] },
+      { san: 'h3', evals: [{ cp: 90, pv: 'd8a5 c1d2 a5b6' }, { cp: 80, pv: 'a8c8 a1c1' }] }
+    ]
+  },
+  mate: {
+    note: 'Scholar’s mate: the finishing move is <b>Best move</b> and the game-over screen keeps the label.',
+    steps: [
+      { fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4',
+        evals: [{ cp: -800, pv: 'h5f7' }, { cp: -860, pv: 'd2d3' }] },
+      { san: 'Qxf7#' }
+    ]
+  }
+};
+
+let running = 0;
+async function run(name) {
+  const sc = SCEN[name];
+  if (!sc) return;
+  const runId = ++running;
+  document.querySelectorAll('#bar [data-sc]').forEach((b) => b.classList.toggle('active', b.dataset.sc === name));
+  say(sc.note);
+
+  // work out every position in the scenario and register fake evals
+  const g = new BFMChess();
+  let fen = sc.steps[0].fen;
+  if (fen) g.load(fen); else { if (sc.steps[0].san) g.move(sc.steps[0].san); fen = g.fen(); }
+  const evalsFor = (step) => { if (step.evals) FAKE[fen] = { lines: step.evals }; };
+  evalsFor(sc.steps[0]);
+  renderBoard(fen);
+  await wait(700);
+  if (runId !== running) return;
+
+  for (let i = 1; i < sc.steps.length; i++) {
+    if (runId !== running) return;
+    const st = sc.steps[i];
+    const mv = g.move(st.san);
+    fen = g.fen();
+    if (st.evals) FAKE[fen] = { lines: st.evals };
+    else if (FAKE[fen] === undefined) FAKE[fen] = { lines: [{ cp: 0, pv: g.moves()[0] ? 'e2e4' : 'a2a3' }] };
+    renderBoard(fen);
+    await wait(1900);
+    if (runId !== running) return;
+  }
+}
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+document.querySelectorAll('#bar [data-sc]').forEach((b) => { b.onclick = () => run(b.dataset.sc); });
+document.getElementById('flip').onclick = () => { flipped = !flipped; renderBoard(position); };
+document.getElementById('settings').onclick = () => {
+  const p = document.querySelector('.bfm-panel');
+  if (p) p.classList.toggle('bfm-showset');
+};
+run('opening');
+</script>
+</body>
+</html>

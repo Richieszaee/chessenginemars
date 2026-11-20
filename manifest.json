@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "Bossfrommars Analysis Arrows",
-  "version": "1.5.0",
-  "description": "Shows Stockfish 19 Lite's top moves as arrows on Chess.com's analysis board, bot games and finished games.",
+  "name": "Bossfrommars Analysis — Arrows & Move Labels",
+  "version": "2.0.0",
+  "description": "Live Stockfish analysis for Chess.com: best-move arrows, eval bar and chess.com-style move labels — Brilliant, Great, Best, Inaccuracy, Mistake, Blunder.",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
   },
   "action": {
-    "default_title": "Bossfrommars Analysis Arrows",
+    "default_title": "Bossfrommars Analysis — Arrows & Move Labels",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png"
@@ -42,6 +42,7 @@
       ],
       "js": [
         "chess.js",
+        "review.js",
         "content.js"
       ],
       "css": [
