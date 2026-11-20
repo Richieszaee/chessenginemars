@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bossfrommars Analysis — Arrows & Move Labels",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Live Stockfish analysis for Chess.com: best-move arrows, eval bar and chess.com-style move labels — Brilliant, Great, Best, Inaccuracy, Mistake, Blunder.",
   "icons": {
     "16": "icon16.png",
@@ -43,6 +43,7 @@
       "js": [
         "chess.js",
         "review.js",
+        "icons.js",
         "content.js"
       ],
       "css": [

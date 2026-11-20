@@ -4,9 +4,32 @@ A Chrome extension for **chess.com** that shows live Stockfish analysis *and* ch
 move labels while you play: **Brilliant**, **Great move**, **Best**, **Excellent**, **Book**,
 **Inaccuracy**, **Mistake**, **Blunder** and **Miss**.
 
-![panel](preview/analysis/index.html)
+## Icons — chess.com's own shapes and colours
+
+Every label uses chess.com's exact palette and glyphs, so the board and panel read the same way
+as their Game Review:
+
+| | Label | Icon | Colour |
+|---|---|---|---|
+| <img src="https://img.shields.io/badge/!!-26c2a3?style=flat-square" /> | **Brilliant** | `!!` | `#26c2a3` |
+| <img src="https://img.shields.io/badge/!-5c8bb0?style=flat-square" /> | **Great move** | `!` | `#5c8bb0` |
+| <img src="https://img.shields.io/badge/%E2%98%85-96bc4b?style=flat-square" /> | **Best move** | ★ | `#96bc4b` |
+| <img src="https://img.shields.io/badge/%F0%9F%91%8D-81b64c?style=flat-square" /> | **Excellent** | 👍 | `#81b64c` |
+| <img src="https://img.shields.io/badge/%E2%9C%93-95af8b?style=flat-square" /> | **Good** | ✓ | `#95af8b` |
+| <img src="https://img.shields.io/badge/%F0%9F%93%96-a88865?style=flat-square" /> | **Book** | ❖ | `#a88865` |
+| <img src="https://img.shields.io/badge/%3F!-f7c631?style=flat-square" /> | **Inaccuracy** | `?!` | `#f7c631` |
+| <img src="https://img.shields.io/badge/%3F-ffa459?style=flat-square" /> | **Mistake** | `?` | `#ffa459` |
+| <img src="https://img.shields.io/badge/%E2%9C%97-ff7769?style=flat-square" /> | **Miss** | ✗ | `#ff7769` |
+| <img src="https://img.shields.io/badge/%3F%3F-ca3431?style=flat-square" /> | **Blunder** | `??` | `#ca3431` |
+| <img src="https://img.shields.io/badge/%E2%9E%A1-b0b0b0?style=flat-square" /> | **Forced** | ➡ | `#b0b0b0` |
+
+Icons are real SVG (`icons.js`), not font characters, and they appear in four places: the
+pop-up, the last-move card, the recent-moves strip, and directly on the board — as a disc on
+the destination square plus chess.com's coloured square tint.
 
 ---
+
+
 
 ## What it does
 
@@ -42,7 +65,7 @@ Thresholds live in `review.js` (`classify()`), so they are easy to tune.
 
 ## Install (unpacked)
 
-1. Download `dist/bossfrommars-analysis-2.0.0.zip` and unzip it (or use this repository folder).
+1. Download `bossfrommars-analysis-2.1.0.zip` and unzip it (or use this repository folder).
 2. Open `chrome://extensions`, enable **Developer mode**.
 3. **Load unpacked** → pick the unzipped folder (the one containing `manifest.json`).
 4. Open any chess.com analysis board, bot game, or finished game.
@@ -84,6 +107,7 @@ offscreen.html/js  runs Stockfish 19 Lite in a Web Worker
 page.js            MAIN-world script: reads chess.com's board object (FEN, flip)
 content.js         panel, arrows, eval bar, toast, label pipeline
 review.js          move classification (labels, book, sacrifice tests)
+icons.js           chess.com icon set (shapes + palette) as inline SVG
 content.css        all UI styling
 chess.js           chess.js (move generation / SAN / PGN)
 stockfish-*.js/.wasm  Stockfish 19 Lite (single file, no threads)

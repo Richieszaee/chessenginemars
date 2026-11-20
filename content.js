@@ -3,6 +3,7 @@
 (function () {
   const Chess = window.BFMChess;
   const R = window.BFMReview;
+  const I = window.BFMIcons;
 
   const DEFAULTS = {
     on: true, moves: 3, depth: 20, evalbar: 1, min: false, x: null, y: null, bgImage: '',
@@ -310,16 +311,9 @@
   }
   function badgeMarkup(rec, flip) {
     const info = R.info(rec.label);
-    if (!info.glyph) return '';
+    if (!info.label) return '';
     const [bx, by] = xy(rec.to, flip);
-    const filled = ['brilliant', 'great', 'best', 'inaccuracy', 'mistake', 'blunder', 'miss'].indexOf(rec.label) >= 0;
-    const glyph = info.glyph.length > 1 ? info.glyph : info.glyph;
-    const fs = info.glyph.length > 1 ? .34 : .42;
-    const bg = filled ? info.color : 'rgba(12,16,20,.86)';
-    const fg = filled ? '#0d1116' : info.color;
-    const x = bx + .36, y = by - .36;
-    return `<g class="bfm-badge-mark"><circle cx="${x}" cy="${y}" r=".27" fill="${bg}" stroke="rgba(255,255,255,.92)" stroke-width=".045"/>` +
-      `<text x="${x}" y="${y + fs * .34}" font-size="${fs}" font-weight="900" text-anchor="middle" fill="${fg}" font-family="Arial,Helvetica,sans-serif">${glyph}</text></g>`;
+    return I.boardBadge(rec.label, bx + .33, by - .33, .25);
   }
   function drawArrows() {
     const b = boardEl(); if (!b) return;
@@ -327,6 +321,11 @@
     if (!S.on || allowedHere() !== 'ok' || linesFen !== lastFen) { s.innerHTML = ''; return; }
     const flip = isFlipped(b);
     let h = '', badges = '';
+    // chess.com tints the squares of the move that was just graded
+    if (S.boardBadge && lastRecord && lastRecord.to) {
+      h += I.squareTint(lastRecord.label, xy(lastRecord.to, flip), 1);
+      if (lastRecord.from) h += I.squareTint(lastRecord.label, xy(lastRecord.from, flip), 1).replace('opacity=".5"', 'opacity=".28"');
+    }
     const n = Math.min(S.moves, lines.length);
     for (let i = n - 1; i >= 0; i--) {   // best move drawn last = on top
       const L = lines[i]; if (!L || !L.pv[0]) continue;
@@ -559,7 +558,7 @@
     const card = panel.querySelector('.bfm-lastcard');
     if (!lastRecord) {
       card.className = 'bfm-lastcard'; card.dataset.q = 'none';
-      card.querySelector('.bfm-qi').textContent = '•';
+      card.querySelector('.bfm-qi').innerHTML = I.disc('none');
       card.querySelector('.bfm-lasttext').innerHTML = '<b>Last move</b><small>' +
         (labelsLost ? 'Reload the page to grade moves from here' : 'Play a move to get a label') + '</small>';
       const d0 = card.querySelector('.bfm-qdelta');
@@ -568,7 +567,7 @@
     }
     const info = R.info(lastRecord.label);
     card.dataset.q = lastRecord.label;
-    card.querySelector('.bfm-qi').textContent = info.glyph || '•';
+    card.querySelector('.bfm-qi').innerHTML = I.disc(lastRecord.label);
     card.querySelector('.bfm-lasttext').innerHTML =
       `<b>${info.label || 'Move'} · ${lastRecord.san}</b><small>${info.blurb}</small>`;
     const d = card.querySelector('.bfm-qdelta');
@@ -637,7 +636,7 @@
     panel.querySelector('.bfm-recent').innerHTML = recent.length
       ? recent.map((r) => {
         const num = r.moveNo + (r.color === 'w' ? '.' : '…');
-        return `<span class="bfm-rm" data-q="${r.label}" title="${R.info(r.label).label}"><i>${num}</i>${r.san}<em>${R.suffix(r.label)}</em></span>`;
+        return `<span class="bfm-rm" data-q="${r.label}" title="${R.info(r.label).label}"><i>${num}</i>${r.san}${I.svg(r.label, 'bfm-rmi')}</span>`;
       }).join('')
       : '';
 
@@ -676,7 +675,7 @@
     if (!info.label) { hideToast(); return; }
     const el = ensureToast();
     el.dataset.q = rec.label;
-    el.querySelector('.bfm-ti').textContent = info.glyph;
+    el.querySelector('.bfm-ti').innerHTML = I.disc(rec.label);
     el.querySelector('.bfm-tt b').textContent = info.label;
     el.querySelector('.bfm-tt small').textContent = rec.san + ' — ' + info.blurb;
     positionToast();

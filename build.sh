@@ -18,6 +18,7 @@ FILES=(
   content.css
   chess.js
   review.js
+  icons.js
   stockfish-19-lite-single.js
   stockfish-19-lite-single.wasm
   icon16.png
