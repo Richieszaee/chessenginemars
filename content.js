@@ -313,7 +313,7 @@
     const info = R.info(rec.label);
     if (!info.label) return '';
     const [bx, by] = xy(rec.to, flip);
-    return I.boardBadge(rec.label, bx + .33, by - .33, .25);
+    return I.boardBadge(rec.label, bx + .34, by - .34, .28);
   }
   function drawArrows() {
     const b = boardEl(); if (!b) return;

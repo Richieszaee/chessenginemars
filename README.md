@@ -4,28 +4,33 @@ A Chrome extension for **chess.com** that shows live Stockfish analysis *and* ch
 move labels while you play: **Brilliant**, **Great move**, **Best**, **Excellent**, **Book**,
 **Inaccuracy**, **Mistake**, **Blunder** and **Miss**.
 
-## Icons — chess.com's own shapes and colours
+## Icons — chess.com's own artwork
 
-Every label uses chess.com's exact palette and glyphs, so the board and panel read the same way
-as their Game Review:
+The move labels use **chess.com's actual "Move Classification" vector files** (from their public
+brand assets), embedded verbatim in `icons.js` — the same 18x19 artwork, the same official fills,
+the same inner shadow and highlight. That is why the panel, the pop-up and the board badge look
+identical to Game Review.
 
-| | Label | Icon | Colour |
-|---|---|---|---|
-| <img src="https://img.shields.io/badge/!!-26c2a3?style=flat-square" /> | **Brilliant** | `!!` | `#26c2a3` |
-| <img src="https://img.shields.io/badge/!-5c8bb0?style=flat-square" /> | **Great move** | `!` | `#5c8bb0` |
-| <img src="https://img.shields.io/badge/%E2%98%85-96bc4b?style=flat-square" /> | **Best move** | ★ | `#96bc4b` |
-| <img src="https://img.shields.io/badge/%F0%9F%91%8D-81b64c?style=flat-square" /> | **Excellent** | 👍 | `#81b64c` |
-| <img src="https://img.shields.io/badge/%E2%9C%93-95af8b?style=flat-square" /> | **Good** | ✓ | `#95af8b` |
-| <img src="https://img.shields.io/badge/%F0%9F%93%96-a88865?style=flat-square" /> | **Book** | ❖ | `#a88865` |
-| <img src="https://img.shields.io/badge/%3F!-f7c631?style=flat-square" /> | **Inaccuracy** | `?!` | `#f7c631` |
-| <img src="https://img.shields.io/badge/%3F-ffa459?style=flat-square" /> | **Mistake** | `?` | `#ffa459` |
-| <img src="https://img.shields.io/badge/%E2%9C%97-ff7769?style=flat-square" /> | **Miss** | ✗ | `#ff7769` |
-| <img src="https://img.shields.io/badge/%3F%3F-ca3431?style=flat-square" /> | **Blunder** | `??` | `#ca3431` |
-| <img src="https://img.shields.io/badge/%E2%9E%A1-b0b0b0?style=flat-square" /> | **Forced** | ➡ | `#b0b0b0` |
+| Icon | Label | Official fill |
+|---|---|---|
+| `!!` | **Brilliant** | `#1bada6` |
+| `!` | **Great move** | `#1bada6` |
+| ★ | **Best move** | `#96bc4b` |
+| 👍 | **Excellent** | `#96bc4b` |
+| ✓ | **Good** | `#96af8b` |
+| ▬ | **Book** | `#a88865` |
+| `?!` | **Inaccuracy** | `#f7c045` |
+| `?` | **Mistake** | `#e58f2a` |
+| ✗ | **Miss** | `#ca3431` |
+| `??` | **Blunder** | `#ca3431` |
+| ➡ | **Forced** | `#b0b0b0` (drawn to match) |
 
-Icons are real SVG (`icons.js`), not font characters, and they appear in four places: the
-pop-up, the last-move card, the recent-moves strip, and directly on the board — as a disc on
-the destination square plus chess.com's coloured square tint.
+They appear in four places: the pop-up, the last-move card, the recent-moves strip, and directly
+on the board — chess.com's coloured **square tint** on the destination square plus the disc badge
+in its corner.
+
+> Move-classification artwork © Chess.com, taken from their public brand resources and used here
+> for personal, non-commercial analysis. If you republish this, credit Chess.com.
 
 ---
 
@@ -65,7 +70,7 @@ Thresholds live in `review.js` (`classify()`), so they are easy to tune.
 
 ## Install (unpacked)
 
-1. Download `bossfrommars-analysis-2.1.0.zip` and unzip it (or use this repository folder).
+1. Download `bossfrommars-analysis-2.2.0.zip` and unzip it (or use this repository folder).
 2. Open `chrome://extensions`, enable **Developer mode**.
 3. **Load unpacked** → pick the unzipped folder (the one containing `manifest.json`).
 4. Open any chess.com analysis board, bot game, or finished game.
