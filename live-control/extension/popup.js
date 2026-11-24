@@ -18,6 +18,8 @@ function showError(message) {
 function parseRelay(value) {
   try {
     const url = new URL(value);
+    if (url.protocol === 'https:') url.protocol = 'wss:';
+    else if (url.protocol === 'http:') url.protocol = 'ws:';
     if (!['ws:', 'wss:'].includes(url.protocol) || !url.hostname || url.username || url.password) return null;
     if (url.pathname === '/' || url.pathname === '') url.pathname = '/ws';
     return url;
@@ -134,7 +136,7 @@ $('saveRelay').addEventListener('click', async () => {
   const value = $('relayUrl').value.trim();
   const url = parseRelay(value);
   if (!url) {
-    showError('Use a ws:// or wss:// relay URL without a username or password.');
+    showError('Use an https:// or wss:// relay URL without a username or password.');
     $('relayUrl').focus();
     return;
   }

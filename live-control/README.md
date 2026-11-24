@@ -53,6 +53,10 @@ The session window shows the live preview and a six-digit pairing code. Chrome's
 
 Click the shared screen in the controller to focus it for keyboard input. Mouse movement, clicks, dragging, scrolling, and keyboard input are then sent to the shared tab. The host can pause, revoke, or stop at any time. The local mouse remains usable.
 
+## Different Wi-Fi networks
+
+Mars Live also works across different networks when the relay has a public HTTPS/WSS address. See [`REMOTE.md`](REMOTE.md) for the quick Cloudflare Tunnel setup and a permanent container deployment option. You can paste an `https://…trycloudflare.com` address directly into the extension's relay field; it is converted to the matching `wss://…/ws` URL.
+
 ## Security model and scope
 
 ### What is shared
