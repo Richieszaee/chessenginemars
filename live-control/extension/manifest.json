@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Mars Live — Browser Control",
+  "short_name": "Mars Live",
+  "version": "1.0.0",
+  "description": "Share one browser tab with a controller you approve. You approve sharing and control separately, and your local mouse always works.",
+  "minimum_chrome_version": "110",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Mars Live — start a consent-first browser session",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "desktopCapture",
+    "scripting",
+    "storage",
+    "debugger"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*",
+    "ws://*/*",
+    "wss://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

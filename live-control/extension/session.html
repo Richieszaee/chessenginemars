@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mars Live — session</title>
+  <link rel="stylesheet" href="session.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none"><path d="M7 22.5 22.5 7" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/><path d="m18.5 6.5 8.3-1.3-1.3 8.3-7-7Z" fill="currentColor"/><rect x="6.5" y="21.5" width="4" height="4" rx="1.4" fill="currentColor"/></svg>
+        </span>
+        <span class="brand-name">Mars <b>Live</b></span>
+        <span class="session-tag">SESSION</span>
+      </div>
+      <span id="connectionPill" class="connection-pill"><i></i><span>Getting ready</span></span>
+    </header>
+
+    <section id="setupView" class="view setup-view">
+      <div class="setup-heading">
+        <p class="eyebrow">STEP 1 · CHOOSE WHAT TO SHARE</p>
+        <h1>One tab.<br><em>Your call.</em></h1>
+        <p class="lead">Chrome will ask you to choose the tab to share. Accepting that prompt is required before anything is captured.</p>
+      </div>
+
+      <div class="target-card">
+        <div class="target-icon" aria-hidden="true">↗</div>
+        <div class="target-copy">
+          <span class="mini-label">ACTIVE TAB WHEN YOU STARTED</span>
+          <h2 id="targetTitle">Reading target tab…</h2>
+          <p id="targetUrl">Waiting for Chrome</p>
+        </div>
+        <span id="targetStatus" class="target-status">READY</span>
+      </div>
+
+      <div class="consent-list">
+        <div class="consent-row"><span>1</span><p><b>Share.</b> Only this tab is captured. Your screen, other tabs, and browser chrome are not.</p></div>
+        <div class="consent-row"><span>2</span><p><b>Approve control.</b> A controller starts view-only. Mouse and keyboard stay locked until you click <strong>Allow control</strong>.</p></div>
+        <div class="consent-row"><span>3</span><p><b>Stay in charge.</b> Use the live banner on the shared tab to pause or stop. Your local mouse always works.</p></div>
+      </div>
+
+      <p id="setupError" class="error" role="alert" hidden></p>
+      <button id="shareButton" class="primary-button" type="button">
+        <span id="shareLabel">Choose tab &amp; share</span>
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <p class="fine-print">Chrome’s native sharing bar stays visible while a session is live. Nothing is recorded or stored.</p>
+    </section>
+
+    <section id="liveView" class="view live-view" hidden>
+      <div class="live-heading">
+        <div>
+          <p class="eyebrow"><span class="rec-dot"></span> LIVE TAB · YOUR MOUSE IS STILL LIVE</p>
+          <h1>Sharing on your terms.</h1>
+        </div>
+        <span class="duration" id="duration">00:00</span>
+      </div>
+
+      <div class="preview-card">
+        <video id="preview" muted playsinline autoplay></video>
+        <div class="preview-shade"></div>
+        <span class="preview-label"><i></i> LIVE PREVIEW</span>
+        <span class="preview-resolution" id="previewResolution">—</span>
+      </div>
+
+      <section class="pair-card" aria-labelledby="pairTitle">
+        <div class="pair-copy">
+          <span class="mini-label">CONTROLLER PAIRING CODE</span>
+          <h2 id="pairTitle">One controller.<br>No standing access.</h2>
+          <p id="pairHelp">Open the controller page and enter this code. Control is still locked until you approve it.</p>
+        </div>
+        <div class="code-wrap">
+          <output id="pairCode" class="pair-code" aria-live="polite">······</output>
+          <button id="copyCode" class="copy-button" type="button">Copy code</button>
+        </div>
+      </section>
+
+      <section class="control-card" aria-labelledby="controlTitle">
+        <div class="control-title-row">
+          <div>
+            <span class="mini-label">REMOTE CONTROLLER</span>
+            <h2 id="controlTitle"><i id="controllerDot"></i><span id="controllerStatus">Waiting for controller</span></h2>
+          </div>
+          <span id="controlBadge" class="control-badge">VIEW ONLY</span>
+        </div>
+
+        <div id="requestPanel" class="request-panel" hidden>
+          <p><b>A controller is requesting mouse and keyboard control.</b><br>Approve only if you are watching and ready.</p>
+          <div class="button-row">
+            <button id="allowControlButton" class="primary-button small" type="button">Allow control</button>
+            <button id="declineControlButton" class="secondary-button" type="button">Decline</button>
+          </div>
+        </div>
+
+        <div id="activePanel" class="active-panel">
+          <p id="controlDescription">The controller can request access at any time. You can revoke it below.</p>
+          <div class="button-row">
+            <button id="pauseControlButton" class="secondary-button" type="button" hidden>Pause control</button>
+            <button id="revokeControlButton" class="secondary-button danger-text" type="button" hidden>Revoke control</button>
+            <button id="retryRelayButton" class="secondary-button" type="button" hidden>Reconnect relay</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="stop-row">
+        <p><strong>Need a hard stop?</strong> End sharing and disconnect the controller.</p>
+        <button id="stopButton" class="stop-button" type="button">Stop session</button>
+      </div>
+      <p class="fine-print">Frames travel through your chosen relay and are not stored there. Closing this window also ends the session.</p>
+    </section>
+
+    <section id="endedView" class="view ended-view" hidden>
+      <div class="ended-icon" aria-hidden="true">✓</div>
+      <p class="eyebrow">SESSION CLOSED</p>
+      <h1>The keys are<br><em>back with you.</em></h1>
+      <p class="lead" id="endedReason">Sharing stopped and the controller was disconnected.</p>
+      <div class="ended-checks">
+        <p>✓ Capture stopped</p>
+        <p>✓ Remote input disabled</p>
+        <p>✓ Pairing code no longer works</p>
+      </div>
+      <button id="closeSessionButton" class="primary-button" type="button">Close this window</button>
+    </section>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </main>
+  <canvas id="captureCanvas" hidden></canvas>
+  <script src="session.js"></script>
+</body>
+</html>
