@@ -33,7 +33,7 @@ function setJoinError(message) {
 
 function setJoining(joining) {
   $('joinButton').disabled = joining;
-  $('joinButton').querySelector('span').textContent = joining ? 'Connecting…' : 'View session';
+  $('joinButton').querySelector('span').textContent = joining ? 'Connecting…' : 'Connect';
   $('codeInput').disabled = joining;
 }
 
@@ -349,7 +349,7 @@ $('joinForm').addEventListener('submit', (event) => {
   event.preventDefault();
   const code = $('codeInput').value.replace(/\D/g, '').slice(0, 6);
   if (!/^\d{6}$/.test(code)) {
-    setJoinError('Enter the six-digit code shown in the host’s Mars Live window.');
+    setJoinError('Enter the six-digit PIN shown in the host’s Mars Live window.');
     $('codeInput').focus();
     return;
   }
@@ -374,6 +374,12 @@ $('requestControlButton').addEventListener('click', () => {
   }, 12000);
 });
 $('disconnectButton').addEventListener('click', () => resetToLanding(''));
+
+const linkedPin = (new URLSearchParams(location.search).get('pin') || '').replace(/\D/g, '').slice(0, 6);
+if (/^\d{6}$/.test(linkedPin)) {
+  $('codeInput').value = linkedPin;
+  setTimeout(() => connect(linkedPin), 80);
+}
 
 fetch('/api/health', { cache: 'no-store' })
   .then((response) => response.json())

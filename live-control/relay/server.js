@@ -14,6 +14,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(here, 'public');
 const staticFiles = new Map([
   ['/', ['controller.html', 'text/html; charset=utf-8']],
+  ['/connect', ['controller.html', 'text/html; charset=utf-8']],
   ['/controller.css', ['controller.css', 'text/css; charset=utf-8']],
   ['/controller.js', ['controller.js', 'text/javascript; charset=utf-8']],
   ['/icon.svg', ['icon.svg', 'image/svg+xml']]

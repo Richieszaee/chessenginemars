@@ -62,6 +62,20 @@ function randomToken() {
   return Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+function controllerWebsiteUrl() {
+  try {
+    const relay = new URL(state.relayUrl);
+    relay.protocol = relay.protocol === 'wss:' ? 'https:' : 'http:';
+    relay.pathname = '/connect';
+    relay.hash = '';
+    relay.search = '';
+    if (state.code) relay.searchParams.set('pin', state.code);
+    return relay.href;
+  } catch (error) {
+    return '';
+  }
+}
+
 async function initialize() {
   try {
     const saved = await chrome.storage.local.get('marsLivePending');
@@ -127,6 +141,7 @@ function sendBannerState() {
 
 function render() {
   $('pairCode').textContent = state.code || '······';
+  $('openControllerButton').disabled = !state.code || !controllerWebsiteUrl();
   $('pairHelp').textContent = state.controllerConnected
     ? 'Controller connected. Sharing is view-only until you allow control.'
     : 'Open the controller page and enter this code. Control is still locked until you approve it.';
@@ -491,7 +506,9 @@ async function persistSession() {
       marsLiveSession: {
         windowId: current.id,
         targetTabId: state.targetTabId,
-        startedAt: state.startedAt
+        startedAt: state.startedAt,
+        code: state.code,
+        relayUrl: state.relayUrl
       }
     });
   } catch (error) {
@@ -600,6 +617,10 @@ $('copyCode').addEventListener('click', async () => {
     input.remove();
     toast('Pairing code copied.');
   }
+});
+$('openControllerButton').addEventListener('click', () => {
+  const url = controllerWebsiteUrl();
+  if (url) chrome.tabs.create({ url });
 });
 $('allowControlButton').addEventListener('click', approveControl);
 $('declineControlButton').addEventListener('click', declineControl);

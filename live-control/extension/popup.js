@@ -28,11 +28,24 @@ function parseRelay(value) {
   }
 }
 
+function websiteUrl() {
+  const relay = parseRelay((state.existingSession && state.existingSession.relayUrl) || state.relayUrl);
+  if (!relay) return '';
+  const url = new URL(relay.href);
+  url.protocol = relay.protocol === 'wss:' ? 'https:' : 'http:';
+  url.pathname = '/connect';
+  url.hash = '';
+  url.search = '';
+  const code = state.existingSession && state.existingSession.code;
+  if (code) url.searchParams.set('pin', code);
+  return url.href;
+}
+
 function relayLabel(value) {
   const url = parseRelay(value);
-  if (!url) return 'Invalid URL';
+  if (!url) return 'Invalid address';
   const local = ['127.0.0.1', 'localhost', '::1'].includes(url.hostname);
-  return `${local ? 'Local' : url.protocol.replace(':', '')} · ${url.host}`;
+  return local ? 'Local' : url.host;
 }
 
 async function checkPin() {
@@ -55,45 +68,63 @@ async function loadTab() {
   state.tab = tabs && tabs[0] ? tabs[0] : null;
 }
 
+function flash(button, label) {
+  const original = button.textContent;
+  button.textContent = label;
+  setTimeout(() => { button.textContent = original; }, 1200);
+}
+
+async function copyText(text, button, successLabel) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (error) {
+    const input = document.createElement('textarea');
+    input.value = text;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    input.remove();
+  }
+  if (button && successLabel) flash(button, successLabel);
+}
+
 function render() {
-  const pinStep = $('pinStep');
-  const tabStep = $('tabStep');
-  pinStep.classList.toggle('done', state.pinned);
-  $('pinCheck').textContent = state.pinned ? '✓' : '';
-  $('pinBadge').textContent = state.pinned ? 'PINNED' : 'REQUIRED';
-  $('pinBadge').className = `badge ${state.pinned ? 'ok' : ''}`;
-  $('pinHelp').textContent = state.pinned
-    ? 'Pinned and ready. You can open Mars Live from any web tab.'
-    : 'Click Chrome’s puzzle icon, then the pin beside Mars Live.';
-  $('manualPin').hidden = state.pinDetectionSupported || state.pinned;
-  $('manualPin').onclick = () => {
-    state.manualPinned = true;
-    checkPin().then(render);
-  };
+  const active = !!state.existingSession;
+  $('connectView').hidden = active;
+  $('sessionView').hidden = !active;
 
   const url = state.tab && state.tab.url ? state.tab.url : '';
   const supported = /^https?:\/\//i.test(url) && !/^https:\/\/chromewebstore\.google\.com\//i.test(url);
-  tabStep.classList.toggle('done', supported);
-  tabStep.classList.toggle('unsupported', !supported);
-  $('tabCheck').textContent = supported ? '✓' : '';
-  $('tabBadge').textContent = supported ? 'WEB TAB' : 'UNSUPPORTED';
+  $('tabCard').classList.toggle('unsupported', !supported);
+  $('tabBadge').textContent = supported ? 'READY' : 'UNSUPPORTED';
   $('tabBadge').className = `badge ${supported ? 'ok' : 'error'}`;
-  let title = state.tab && state.tab.title ? state.tab.title.trim() : '';
-  if (!title) title = supported ? 'Untitled web tab' : 'Open a regular http(s) tab to share';
-  $('tabName').textContent = title;
-  $('tabUrl').textContent = supported ? url : 'Chrome settings, the Web Store, and internal pages cannot be shared.';
+  $('tabName').textContent = state.tab && state.tab.title
+    ? state.tab.title.trim()
+    : supported ? 'Untitled website' : 'Open a regular website tab';
+  $('tabUrl').textContent = supported ? url : 'Chrome settings and internal pages can’t be shared.';
+  $('pinHelp').textContent = state.pinned
+    ? 'Ready. You’ll approve sharing and control separately.'
+    : 'Pin Mars Live to get started.';
+  $('manualPin').hidden = state.pinDetectionSupported || state.pinned;
+
   $('relayValue').textContent = relayLabel(state.relayUrl);
   $('relayUrl').value = state.relayUrl;
   $('relayDot').style.background = parseRelay(state.relayUrl) ? 'var(--cyan)' : 'var(--danger)';
-
   const relayValid = !!parseRelay(state.relayUrl);
-  const ready = state.pinned && supported && relayValid && !state.loading;
-  $('startButton').disabled = !ready || state.starting;
-  if (!state.pinned) $('startLabel').textContent = 'Pin the extension to continue';
-  else if (!supported) $('startLabel').textContent = 'Open this on a web tab';
-  else if (!relayValid) $('startLabel').textContent = 'Set a valid relay URL';
-  else if (state.existingSession) $('startLabel').textContent = 'Open live control panel';
-  else $('startLabel').textContent = 'Start a live session';
+  const ready = state.pinned && supported && relayValid && !state.loading && !state.starting;
+  $('connectButton').disabled = active || !ready;
+  $('connectLabel').textContent = state.starting ? 'Opening…' : 'Connect';
+  $('connectHint').textContent = !state.pinned
+    ? 'Pin Mars Live to get started.'
+    : !supported
+      ? 'Open a regular website tab first.'
+      : 'Chrome will ask you to choose a tab.';
+
+  const code = state.existingSession && state.existingSession.code;
+  $('sessionPin').textContent = code || '······';
+  $('copyPin').disabled = !code;
+  $('openWebsiteButton').disabled = !code || !websiteUrl();
+  $('copyInviteButton').disabled = !code || !websiteUrl();
 }
 
 async function refresh() {
@@ -127,16 +158,21 @@ async function ensureRelayPermission(url) {
     if (await chrome.permissions.contains({ origins: [origin] })) return true;
     return await chrome.permissions.request({ origins: [origin] });
   } catch (error) {
-    throw new Error('Chrome could not approve the relay connection. Try the relay settings again.');
+    throw new Error('Chrome could not approve the relay connection. Try Connection settings again.');
   }
 }
 
+$('manualPin').addEventListener('click', async () => {
+  state.manualPinned = true;
+  await checkPin();
+  render();
+});
+
 $('saveRelay').addEventListener('click', async () => {
   showError('');
-  const value = $('relayUrl').value.trim();
-  const url = parseRelay(value);
+  const url = parseRelay($('relayUrl').value.trim());
   if (!url) {
-    showError('Use an https:// or wss:// relay URL without a username or password.');
+    showError('Paste an http://, https://, ws://, or wss:// relay address.');
     $('relayUrl').focus();
     return;
   }
@@ -145,7 +181,7 @@ $('saveRelay').addEventListener('click', async () => {
     await chrome.storage.local.set({ marsLiveRelayUrl: state.relayUrl });
     render();
   } catch (error) {
-    showError('The relay URL could not be saved locally.');
+    showError('The relay address could not be saved.');
   }
 });
 
@@ -156,18 +192,14 @@ $('relayUrl').addEventListener('keydown', (event) => {
   }
 });
 
-$('startButton').addEventListener('click', async () => {
-  if (state.starting) return;
+$('connectButton').addEventListener('click', async () => {
+  if (state.starting || state.existingSession) return;
   showError('');
   const relay = parseRelay(state.relayUrl);
   if (!relay || !state.tab || !state.pinned) return;
   state.starting = true;
   render();
   try {
-    if (state.existingSession) {
-      await chrome.windows.update(state.existingSession.windowId, { focused: true });
-      return;
-    }
     await ensureRelayPermission(relay);
     await chrome.storage.local.set({
       marsLiveRelayUrl: relay.href,
@@ -190,6 +222,40 @@ $('startButton').addEventListener('click', async () => {
     state.starting = false;
     render();
   }
+});
+
+$('copyPin').addEventListener('click', () => {
+  if (state.existingSession && state.existingSession.code) {
+    copyText(state.existingSession.code, $('copyPin'), 'Copied');
+  }
+});
+
+$('openWebsiteButton').addEventListener('click', () => {
+  const url = websiteUrl();
+  if (url) chrome.tabs.create({ url });
+});
+
+$('copyInviteButton').addEventListener('click', () => {
+  const url = websiteUrl();
+  if (url) copyText(url, $('copyInviteButton'), 'Copied');
+});
+
+$('openSessionButton').addEventListener('click', async () => {
+  if (!state.existingSession) return;
+  await chrome.windows.update(state.existingSession.windowId, { focused: true });
+});
+
+$('stopSessionButton').addEventListener('click', async () => {
+  if (!state.existingSession || !window.confirm('Stop this live session and disconnect the controller?')) return;
+  const windowId = state.existingSession.windowId;
+  try {
+    await chrome.runtime.sendMessage({ type: 'mars-live-action', action: 'stop' });
+  } catch (error) {
+    try { await chrome.windows.remove(windowId); } catch (closeError) {}
+  }
+  state.existingSession = null;
+  await chrome.storage.local.remove('marsLiveSession').catch(() => {});
+  render();
 });
 
 $('reloadButton').addEventListener('click', refresh);

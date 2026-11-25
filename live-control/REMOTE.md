@@ -30,8 +30,8 @@ The easiest temporary setup is a Cloudflare Quick Tunnel. A Quick Tunnel URL cha
 ### On the other computer, anywhere with internet
 
 1. Open the same `https://…trycloudflare.com` address in a browser.
-2. Enter the six-digit pairing code from the host's Mars Live window.
-3. Click **View session**, then **Request control**.
+2. Enter the six-digit PIN from the host's Mars Live window, or use the popup’s **Open controller website** button to fill it in automatically.
+3. Click **Connect**, then **Request control**.
 4. The host clicks **Allow control**. Until then, the controller is view-only.
 
 The host can pause, revoke, or stop the session at any time, and the local mouse always works.

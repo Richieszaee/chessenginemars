@@ -48,7 +48,10 @@ test('static controller and health routes respond', async (t) => {
   const page = await fetch(`${http}/`);
   assert.equal(page.status, 200);
   assert.match(page.headers.get('content-type'), /text\/html/);
-  assert.match(await page.text(), /Share the browser/);
+  assert.match(await page.text(), /Connect/);
+  const connectPage = await fetch(`${http}/connect`);
+  assert.equal(connectPage.status, 200);
+  assert.match(connectPage.headers.get('content-type'), /text\/html/);
   assert.equal(relay.sessions.size, 0);
 });
 

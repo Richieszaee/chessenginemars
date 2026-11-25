@@ -9,88 +9,98 @@
 <body>
   <main class="popup">
     <header class="topbar">
-      <a class="brand" href="https://github.com/Richieszaee/chessenginemars" target="_blank" rel="noreferrer" aria-label="Mars Live project">
+      <div class="brand">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 32 32" fill="none"><path d="M7 22.5 22.5 7" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/><path d="m18.5 6.5 8.3-1.3-1.3 8.3-7-7Z" fill="currentColor"/><rect x="6.5" y="21.5" width="4" height="4" rx="1.4" fill="currentColor"/></svg>
         </span>
         <span class="brand-name">Mars <b>Live</b></span>
-      </a>
-      <span class="beta">CONSENT FIRST</span>
+      </div>
+      <span class="top-tag">YOU’RE IN CHARGE</span>
     </header>
 
-    <section class="hero">
-      <p class="eyebrow"><span></span> SHARED BROWSER CONTROL</p>
-      <h1>Share the tab.<br><em>Keep the keys.</em></h1>
-      <p class="intro">Let a controller view and use one tab — only after you approve it. Your mouse stays live the whole time.</p>
-    </section>
-
-    <section class="steps" aria-label="Session setup">
-      <article id="pinStep" class="step">
-        <span class="step-index">01</span>
-        <div class="step-copy">
-          <div class="step-title-row">
-            <h2>Pin Mars Live</h2>
-            <span id="pinBadge" class="badge">REQUIRED</span>
-          </div>
-          <p id="pinHelp">Click Chrome’s puzzle icon, then the pin beside Mars Live.</p>
-          <button id="manualPin" class="text-button" hidden>I pinned it — continue</button>
-        </div>
-        <span id="pinCheck" class="check" aria-hidden="true"></span>
-      </article>
-
-      <article id="tabStep" class="step">
-        <span class="step-index">02</span>
-        <div class="step-copy">
-          <div class="step-title-row">
-            <h2>Choose this tab</h2>
-            <span id="tabBadge" class="badge">ACTIVE TAB</span>
-          </div>
-          <p id="tabName">Reading active tab…</p>
-          <p id="tabUrl" class="tab-url">Only the tab you share is visible.</p>
-        </div>
-        <span id="tabCheck" class="check" aria-hidden="true"></span>
-      </article>
-
-      <article class="step">
-        <span class="step-index">03</span>
-        <div class="step-copy">
-          <div class="step-title-row">
-            <h2>Approve twice</h2>
-            <span class="badge secure">YOU DECIDE</span>
-          </div>
-          <p>Accept Chrome’s share prompt, then allow mouse and keyboard control separately.</p>
-        </div>
-        <span class="check locked" aria-hidden="true">✓</span>
-      </article>
-    </section>
-
-    <details id="relayDetails" class="relay">
-      <summary>
-        <span><span class="relay-dot" id="relayDot"></span> Controller relay</span>
-        <span class="relay-value" id="relayValue">Local · 127.0.0.1</span>
-        <span class="chevron" aria-hidden="true">⌄</span>
-      </summary>
-      <div class="relay-body">
-        <label for="relayUrl">WebSocket URL</label>
-        <div class="relay-row">
-          <input id="relayUrl" type="url" spellcheck="false" autocomplete="off" placeholder="ws://127.0.0.1:8787/ws">
-          <button id="saveRelay" type="button">Save</button>
-        </div>
-        <p>Run the included relay locally, or use a relay you trust.</p>
+    <section id="connectView" class="view">
+      <div class="hero">
+        <p class="eyebrow"><span></span> SHARE ONE TAB</p>
+        <h1>Connect<br><em>with a PIN.</em></h1>
+        <p class="intro">Share one browser tab with someone you trust. You choose what’s shared and approve control.</p>
       </div>
-    </details>
 
-    <div class="privacy-note">
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="15" r="1.3" fill="currentColor"/></svg>
-      <span>No capture starts in the background. Stop any time from the tab’s live banner.</span>
-    </div>
+      <div id="tabCard" class="tab-card">
+        <div class="tab-icon" aria-hidden="true">↗</div>
+        <div class="tab-copy">
+          <span class="mini-label">THIS TAB</span>
+          <strong id="tabName">Reading tab…</strong>
+          <small id="tabUrl">Open a regular website to connect.</small>
+        </div>
+        <span id="tabBadge" class="badge">CHECKING</span>
+      </div>
+
+      <p id="pinHelp" class="pin-help">Pin Mars Live to get started.</p>
+      <button id="manualPin" class="text-button" type="button" hidden>I pinned it — refresh</button>
+
+      <button id="connectButton" class="primary-button" type="button" disabled>
+        <span id="connectLabel">Connect</span>
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <p id="connectHint" class="connect-hint">Chrome will ask you to choose a tab.</p>
+
+      <div class="quick-steps" aria-label="How it works">
+        <span><b>1</b> Connect</span><i></i>
+        <span><b>2</b> Share tab</span><i></i>
+        <span><b>3</b> Approve control</span>
+      </div>
+
+      <details id="relayDetails" class="relay">
+        <summary>
+          <span><span class="relay-dot" id="relayDot"></span> Connection settings</span>
+          <span class="relay-value" id="relayValue">Local</span>
+          <span class="chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="relay-body">
+          <label for="relayUrl">Relay / website address</label>
+          <div class="relay-row">
+            <input id="relayUrl" type="text" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8787">
+            <button id="saveRelay" type="button">Save</button>
+          </div>
+          <p>Use the included local relay, or paste your HTTPS tunnel address.</p>
+        </div>
+      </details>
+    </section>
+
+    <section id="sessionView" class="view" hidden>
+      <div class="session-heading">
+        <div>
+          <p class="eyebrow"><span></span> LIVE SESSION</p>
+          <h1>Your PIN</h1>
+        </div>
+        <span class="live-badge"><i></i> LIVE</span>
+      </div>
+      <p class="intro">Send this PIN to the person you want to invite. They start with view only.</p>
+
+      <div class="pin-card">
+        <output id="sessionPin" class="session-pin" aria-live="polite">······</output>
+        <button id="copyPin" class="copy-button" type="button">Copy PIN</button>
+      </div>
+
+      <button id="openWebsiteButton" class="primary-button" type="button">
+        <span>Open controller website</span>
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <p class="connect-hint">The website opens with your PIN filled in.</p>
+
+      <div class="session-links">
+        <button id="copyInviteButton" class="text-button" type="button">Copy invite link</button>
+        <button id="openSessionButton" class="text-button" type="button">Open live controls</button>
+      </div>
+
+      <div class="session-note">
+        <span aria-hidden="true">✓</span>
+        <p><b>You stay in control.</b> They can’t use the mouse or keyboard until you click Allow control.</p>
+      </div>
+      <button id="stopSessionButton" class="stop-button" type="button">Stop session</button>
+    </section>
 
     <p id="errorMessage" class="error" role="alert" hidden></p>
-
-    <button id="startButton" class="primary-button" type="button" disabled>
-      <span id="startLabel">Pin the extension to continue</span>
-      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
 
     <footer>
       <span><i class="live-dot"></i> Your mouse always works</span>

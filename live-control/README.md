@@ -37,16 +37,16 @@ The default address is `http://127.0.0.1:8787`, and the default WebSocket URL is
 
 1. Open a regular `http://` or `https://` tab.
 2. Click the pinned **Mars Live** extension.
-3. Confirm the relay URL (the local default is already filled in), then click **Start a live session**.
+3. Confirm the relay address (the local default is already filled in), then click **Connect**.
 4. In the session window, click **Choose tab & share**.
 5. Select the intended tab in Chrome's native prompt and accept.
 
-The session window shows the live preview and a six-digit pairing code. Chrome's sharing indicator and the Mars Live banner remain visible on the shared tab.
+The session window shows the live preview and a six-digit PIN. Chrome's sharing indicator and the Mars Live banner remain visible on the shared tab. The popup also shows **Your PIN** when you reopen it during a live session.
 
 ### 4. Connect a controller
 
-1. Open `http://127.0.0.1:8787` in the controller browser.
-2. Enter the six-digit code and click **View session**.
+1. Open `http://127.0.0.1:8787/connect` in the controller browser, or click **Open controller website** in the Mars Live popup/session window. The invite link includes the PIN and fills it in automatically.
+2. Enter the six-digit PIN if it is not already filled in, then click **Connect**.
 3. The controller arrives **view-only**.
 4. Click **Request control** in the controller.
 5. The host reviews the request in the session window or the tab banner and clicks **Allow control**.

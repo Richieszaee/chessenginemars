@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b1014">
-  <title>Mars Live — controller</title>
+  <title>Mars Live — connect</title>
   <link rel="stylesheet" href="/controller.css">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
 </head>
@@ -29,11 +29,11 @@
   <main id="landing" class="landing">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow"><span></span> HUMAN-IN-THE-LOOP BROWSER CONTROL</p>
-        <h1>Share the browser.<br><em>Not the keys.</em></h1>
-        <p class="hero-lead">A live tab, a paired controller, and a person who stays in charge. See what’s happening and step in with your own mouse at any moment.</p>
+        <p class="eyebrow"><span></span> CONNECT WITH A PIN</p>
+        <h1>Connect<br><em>with a PIN.</em></h1>
+        <p class="hero-lead">Enter the PIN from the host’s Mars Live window to view their shared tab. Control stays locked until they approve it.</p>
         <div class="hero-actions">
-          <a class="primary-link" href="#connect">Enter a session code <span aria-hidden="true">↗</span></a>
+          <a class="primary-link" href="#connect">Enter your PIN <span aria-hidden="true">↗</span></a>
           <span class="action-note">Controller runs in the browser</span>
         </div>
         <div class="hero-meta">
@@ -45,18 +45,18 @@
 
       <section id="connect" class="pair-card" aria-labelledby="pairHeading">
         <div class="pair-topline">
-          <span>CONTROL ROOM <b>/ 01</b></span>
-          <span class="pair-lock" aria-label="End-to-end session approval">◆ PRIVATE PAIRING</span>
+          <span>CONTROLLER WEBSITE <b>/ 01</b></span>
+          <span class="pair-lock" aria-label="Host approval required">◆ HOST APPROVAL REQUIRED</span>
         </div>
         <div class="pair-heading">
-          <span class="pair-kicker">ONE-TIME SESSION CODE</span>
-          <h2 id="pairHeading">Step into the session.</h2>
-          <p>Ask the host for the six-digit code shown in Mars Live. You’ll arrive with a view, not control.</p>
+          <span class="pair-kicker">SIX-DIGIT PIN FROM THE HOST</span>
+          <h2 id="pairHeading">Enter your PIN.</h2>
+          <p>Paste the PIN from the host’s Mars Live window. You’ll connect with a view, not control.</p>
         </div>
         <form id="joinForm" class="join-form" autocomplete="off">
-          <label class="sr-only" for="codeInput">Six-digit session code</label>
+          <label class="sr-only" for="codeInput">Six-digit PIN</label>
           <input id="codeInput" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000 000" aria-describedby="joinError" autofocus>
-          <button id="joinButton" type="submit"><span>View session</span><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="joinButton" type="submit"><span>Connect</span><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </form>
         <p id="joinError" class="join-error" role="alert" hidden></p>
         <div class="pair-properties">
@@ -93,7 +93,7 @@
           <span class="card-number">02</span>
           <div class="card-icon" aria-hidden="true">⌁</div>
           <h3>Pair a viewer</h3>
-          <p>Share the six-digit code. The controller sees the live tab, but mouse and keyboard are locked by default.</p>
+          <p>Share the six-digit PIN. The controller sees the live tab, but mouse and keyboard are locked by default.</p>
           <span class="card-foot">VIEW ONLY · NO INPUT</span>
         </article>
         <article class="step-card accent">
