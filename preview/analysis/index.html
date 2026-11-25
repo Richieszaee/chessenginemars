@@ -75,6 +75,7 @@
 <script src="../../chess.js"></script>
 <script src="../../review.js"></script>
 <script src="../../icons.js"></script>
+<script src="../../draw.js"></script>
 <script>
 /* ------------------------------------------------------------------
    A tiny fake "chrome.*" + fake engine so content.js runs untouched.
@@ -85,7 +86,7 @@ const store = {};
 window.chrome = {
   storage: { local: { get: (k, cb) => setTimeout(() => cb({ bfm: store.bfm || { force: true } }), 0), set: (o) => { store.bfm = o.bfm; } } },
   runtime: {
-    // no getURL here: the preview is a plain page, icons.js falls back to ../img/
+    // the preview is a plain page: icons are inline data URIs, so nothing to load
     connect() {
       const subs = []; let timer = null;
       return {

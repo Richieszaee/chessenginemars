@@ -16,6 +16,20 @@
   let state = 'idle', nps = 0, engineName = '', loadingText = '';
   let pendingCheck = null;      // move waiting to be classified
   let chain = [];               // [{fen, san}] positions we have walked through
+  // header glyphs as SVG — immune to page fonts / missing symbols
+  const ICO = {
+    gear: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+      '<circle cx="8" cy="8" r="2.35"/>' +
+      '<path d="M8 1.6v1.7M8 12.7v1.7M14.4 8h-1.7M3.3 8H1.6M12.5 3.5l-1.2 1.2M4.7 11.3l-1.2 1.2M12.5 12.5l-1.2-1.2M4.7 4.7 3.5 3.5"/></svg>',
+    min: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linecap="round"><path d="M4 8h8"/></svg>',
+    plus: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linecap="round"><path d="M8 4v8M4 8h8"/></svg>',
+    dot: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.4" ' +
+      'fill="none" stroke="currentColor" stroke-width="1.5" opacity=".55"/></svg>'
+  };
+
   let lastRecord = null;        // most recently labelled move
   let moveLog = [];             // labelled moves for the recent strip
   let hoverIdx = -1;
@@ -181,20 +195,26 @@
   function samePos(a, b) { return !!a && !!b && keyOf(a) === keyOf(b); }
 
   // record a new position; keeps the SAN chain so the opening book works
+  let plyBase = 0;              // plies trimmed off the front of the chain
   function visit(fen, prevFen) {
     // keep the move chain in sync even before the user enables labels
     if (!chain.length) {
-      chain.push({ fen, san: null });
+      chain.push({ fen, san: null, ply: plyBase });
       return;
     }
     const last = chain[chain.length - 1];
     if (samePos(last.fen, fen)) { last.fen = fen; return; }
     if (prevFen && samePos(prevFen, last.fen)) {
       const mv = moveBetween(last.fen, fen);
-      if (mv) { chain.push({ fen, san: mv.san }); if (chain.length > 48) chain.shift(); return; }
+      if (mv) {
+        chain.push({ fen, san: mv.san, ply: last.ply + 1 });
+        if (chain.length > 48) { chain.shift(); plyBase = Math.max(plyBase, chain[0].ply); }
+        return;
+      }
     }
     // jumped (new game, page swapped, user rewound) — restart the chain
-    chain = [{ fen, san: null }];
+    chain = [{ fen, san: null, ply: 0 }];
+    plyBase = 0;
     moveLog = [];
     lastRecord = null;
     labelsLost = false;
@@ -211,7 +231,8 @@
       if (S.labels && sanSequence().length) labelsLost = true;
       return;
     }
-    pendingCheck = { prevFen, prevLines: prevLines.slice(), mv, at: Date.now(), seqBefore: sanSequence() };
+    const cur = chain.length ? chain[chain.length - 1].ply : 0;
+    pendingCheck = { prevFen, prevLines: prevLines.slice(), mv, at: Date.now(), seqBefore: sanSequence(), plyBefore: cur };
   }
 
   function sanSequence() {
@@ -241,11 +262,16 @@
       fen: pc.prevFen, playedUci, bestUci, bestCp, secondCp, playedCp,
       book, facts, forced: facts.onlyMove, mateAfter: !!(opts && opts.mated)
     });
-    const moveNo = parseInt((pc.prevFen.split(' ')[5] || '1'), 10) || 1;
+    // chess.com's DOM exposes no move counter, so number moves from the ply we
+    // have counted since the game started: 1. / 1… / 2. / 2… …
+    const moveNo = Math.max(1, Math.floor(((pc.plyBefore || 0) + 1) / 2) + 1);
     return {
       san: pc.mv.san, label, drop: R.clamp((wpFor(bestCp) - wpFor(playedCp)) * 100, 0, 100),
       cp: playedCp, bestCp, to: pc.mv.to, from: pc.mv.from, color: pc.mv.color,
-      moveNo, ply: seq.length, fenAfter: opts && opts.fenAfter ? opts.fenAfter : lastFen, book
+      moveNo, ply: seq.length, fenAfter: opts && opts.fenAfter ? opts.fenAfter : lastFen, book,
+      bestSan: (() => { try { const c = new Chess(pc.prevFen);
+        const b = c.move({ from: bestUci.slice(0, 2), to: bestUci.slice(2, 4), promotion: bestUci[4] });
+        return b ? b.san : ''; } catch (e) { return ''; } })()
     };
   }
 
@@ -277,27 +303,16 @@
   }
 
   // ---------- arrows ----------
-  const BEST = '#7fd44a', ALT = '#4aa3e8';
+  // chess.com Game Review colours: green for the best move, blue for the rest
+  const BEST = '#81b64c', ALT = '#4a90d9', RED = '#ca3431';
+  const D = window.BFMDraw;
   function xy(sq, flip) { const f = sq.charCodeAt(0) - 97, r = +sq[1] - 1; return flip ? [7 - f + .5, r + .5] : [f + .5, 7 - r + .5]; }
-  function arrow(u, flip, color, w, opacity, num) {
+
+  function arrowFor(u, flip, color, opts) {
     const [ax, ay] = xy(u.slice(0, 2), flip), [bx, by] = xy(u.slice(2, 4), flip);
     const fx = Math.abs(bx - ax), fy = Math.abs(by - ay);
     const knight = (fx === 1 && fy === 2) || (fx === 2 && fy === 1);
-    const hl = .36, hw = w * 2.5;
-    let path, ex, ey, nx, ny;
-    if (knight) {
-      const mx = fy === 2 ? ax : bx, my = fy === 2 ? by : ay;
-      const l = Math.hypot(bx - mx, by - my); nx = (bx - mx) / l; ny = (by - my) / l;
-      ex = bx - nx * hl; ey = by - ny * hl;
-      path = `<polyline points="${ax},${ay} ${mx},${my} ${ex},${ey}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linejoin="round"/>`;
-    } else {
-      const l = Math.hypot(bx - ax, by - ay); nx = (bx - ax) / l; ny = (by - ay) / l;
-      ex = bx - nx * hl; ey = by - ny * hl;
-      path = `<line x1="${ax + nx * .2}" y1="${ay + ny * .2}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="${w}"/>`;
-    }
-    const head = `<polygon points="${bx},${by} ${ex - ny * hw / 2},${ey + nx * hw / 2} ${ex + ny * hw / 2},${ey - nx * hw / 2}" fill="${color}"/>`;
-    const badge = num ? `<g opacity="${Math.max(opacity, .92)}"><circle cx="${bx + .3}" cy="${by - .3}" r=".17" fill="${color}" stroke="#fff" stroke-width=".03"/><text x="${bx + .3}" y="${by - .245}" font-size=".2" font-weight="800" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif">${num}</text></g>` : '';
-    return { a: `<g opacity="${opacity}">${path}${head}</g>`, badge };
+    return D.arrow(ax, ay, bx, by, color, Object.assign({ knight }, opts || {}));
   }
   function svgFor(b) {
     let s = b.querySelector(':scope > svg.bfm-svg');
@@ -313,29 +328,42 @@
     const info = R.info(rec.label);
     if (!info.label) return '';
     const [bx, by] = xy(rec.to, flip);
-    return I.boardBadge(rec.label, bx + .34, by - .34, .28);
+    return I.boardBadge(rec.label, bx + .34, by - .34, .3);
   }
+
+  // the squares of the graded move, tinted chess.com style
+  function tintMarkup(flip) {
+    if (!S.boardBadge || !lastRecord || !lastRecord.to) return '';
+    const c = I.color(lastRecord.label);
+    const [tx, ty] = xy(lastRecord.to, flip);
+    const [fx, fy] = lastRecord.from ? xy(lastRecord.from, flip) : [tx, ty];
+    return '<rect class="bfm-tint-from" x="' + fx + '" y="' + fy + '" width="1" height="1" fill="' + c + '" opacity=".18"/>' +
+      '<rect class="bfm-tint-to" x="' + tx + '" y="' + ty + '" width="1" height="1" fill="' + c + '" opacity=".34"/>';
+  }
+
   function drawArrows() {
     const b = boardEl(); if (!b) return;
     const s = svgFor(b);
     if (!S.on || allowedHere() !== 'ok' || linesFen !== lastFen) { s.innerHTML = ''; return; }
     const flip = isFlipped(b);
-    let h = '', badges = '';
-    // chess.com tints the squares of the move that was just graded
-    if (S.boardBadge && lastRecord && lastRecord.to) {
-      h += I.squareTint(lastRecord.label, xy(lastRecord.to, flip), 1);
-      if (lastRecord.from) h += I.squareTint(lastRecord.label, xy(lastRecord.from, flip), 1).replace('opacity=".5"', 'opacity=".28"');
-    }
-    const n = Math.min(S.moves, lines.length);
+    let h = tintMarkup(flip), nums = '', badges = '';
+    const n = Math.min(S.moves, lines.filter(Boolean).length);
     for (let i = n - 1; i >= 0; i--) {   // best move drawn last = on top
-      const L = lines[i]; if (!L || !L.pv[0]) continue;
-      let op = i === 0 ? .9 : .5;
-      if (hoverIdx >= 0) op = i === hoverIdx ? .95 : .12;
-      const r = arrow(L.pv[0], flip, i === 0 ? BEST : ALT, i === 0 ? .22 : .14, op, n > 1 ? i + 1 : 0);
-      h += r.a; if (hoverIdx < 0 || hoverIdx === i) badges = r.badge + badges;
+      const L = lines[i]; if (!L || !L.pv || !L.pv[0]) continue;
+      const dim = hoverIdx >= 0 && hoverIdx !== i;
+      const op = dim ? .1 : (i === 0 ? .9 : .38);
+      h += arrowFor(L.pv[0], flip, i === 0 ? BEST : ALT, {
+        width: i === 0 ? .15 : .11,
+        headW: i === 0 ? .38 : .3,
+        opacity: op
+      });
+      if (!dim && n > 1 && hoverIdx < 0) {
+        const [bx, by] = xy(L.pv[0].slice(2, 4), flip);
+        nums += D.numberDisc(bx + .27, by - .27, .14, i + 1, i === 0 ? BEST : ALT);
+      }
     }
-    if (S.boardBadge && lastRecord && !S.min) badges = badgeMarkup(lastRecord, flip) + badges;
-    s.innerHTML = h + badges;
+    if (S.boardBadge && lastRecord && !S.min) badges = badgeMarkup(lastRecord, flip);
+    s.innerHTML = h + nums + badges;
   }
 
   // ---------- formatting ----------
@@ -386,11 +414,10 @@
       <div class="bfm-head">
         <span class="bfm-logo" aria-hidden="true"></span>
         <div class="bfm-brand"><b>Bossfrommars</b><span>LIVE ANALYSIS</span></div>
-        <span class="bfm-sp"></span>
         <span class="bfm-live" title="Engine status"><i></i></span>
         <button class="bfm-tg" role="switch" aria-label="Toggle analysis" title="Analysis on/off (Alt+A)"></button>
-        <button class="bfm-ib bfm-gear" aria-label="Settings" title="Settings (Alt+S)">⚙</button>
-        <button class="bfm-ib bfm-min" aria-label="Minimise panel" title="Minimise (Alt+M)">–</button>
+        <button class="bfm-ib bfm-gear" aria-label="Settings" title="Settings (Alt+S)">${ICO.gear}</button>
+        <button class="bfm-ib bfm-min" aria-label="Minimise panel" title="Minimise (Alt+M)">${ICO.min}</button>
       </div>
       <div class="bfm-body">
         <div class="bfm-evalrow">
@@ -402,7 +429,7 @@
         </div>
 
         <div class="bfm-lastcard" data-q="none">
-          <span class="bfm-qi">•</span>
+          <span class="bfm-qi">${ICO.dot}</span>
           <div class="bfm-lasttext"><b>Last move</b><small>Play a move to get a label</small></div>
           <span class="bfm-qdelta"></span>
         </div>
@@ -436,7 +463,12 @@
         </div>
       </div>`;
     document.documentElement.appendChild(panel);
-    if (S.x !== null && S.y !== null) { panel.style.left = S.x + 'px'; panel.style.top = S.y + 'px'; panel.style.right = 'auto'; }
+    if (S.x !== null && S.y !== null) {
+      const w = panel.offsetWidth || 322, h = panel.offsetHeight || 420;
+      S.x = Math.max(8, Math.min(Math.max(8, innerWidth - w - 8), S.x));
+      S.y = Math.max(8, Math.min(Math.max(8, innerHeight - Math.min(h, 260)), S.y));
+      panel.style.left = S.x + 'px'; panel.style.top = S.y + 'px'; panel.style.right = 'auto';
+    }
 
     panel.querySelectorAll('select').forEach((sel) => {
       sel.value = String(S[sel.dataset.k]);
@@ -501,8 +533,9 @@
       const r = panel.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
       head.setPointerCapture(e.pointerId);
       const mv = (ev) => {
-        S.x = Math.max(0, Math.min(innerWidth - 80, ev.clientX - ox));
-        S.y = Math.max(0, Math.min(innerHeight - 40, ev.clientY - oy));
+        const pw = panel.offsetWidth, ph = panel.offsetHeight;
+        S.x = Math.max(8, Math.min(Math.max(8, innerWidth - pw - 8), ev.clientX - ox));
+        S.y = Math.max(8, Math.min(Math.max(8, innerHeight - ph - 8), ev.clientY - oy));
         panel.style.left = S.x + 'px'; panel.style.top = S.y + 'px'; panel.style.right = 'auto';
       };
       const up = () => { head.removeEventListener('pointermove', mv); head.removeEventListener('pointerup', up); save(); };
@@ -547,7 +580,7 @@
     if (keepCard && lastRecord) return renderLastCard();
     q('.bfm-lastcard').className = 'bfm-lastcard';
     q('.bfm-lastcard').dataset.q = 'none';
-    q('.bfm-lastcard .bfm-qi').textContent = '•';
+    q('.bfm-lastcard .bfm-qi').innerHTML = ICO.dot;
     q('.bfm-lastcard .bfm-lasttext').innerHTML = '<b>Last move</b><small>Play a move to get a label</small>';
     q('.bfm-lastcard .bfm-qdelta').textContent = '';
     q('.bfm-lastcard .bfm-qdelta').className = 'bfm-qdelta';
@@ -568,16 +601,20 @@
     const info = R.info(lastRecord.label);
     card.dataset.q = lastRecord.label;
     card.querySelector('.bfm-qi').innerHTML = I.disc(lastRecord.label);
+    const better = lastRecord.bestSan && lastRecord.bestSan !== lastRecord.san
+      ? ` · better was ${lastRecord.bestSan}` : '';
     card.querySelector('.bfm-lasttext').innerHTML =
-      `<b>${info.label || 'Move'} · ${lastRecord.san}</b><small>${info.blurb}</small>`;
+      `<b>${info.label || 'Move'} · ${lastRecord.san}</b><small>${
+        ['inaccuracy', 'mistake', 'blunder', 'miss'].indexOf(lastRecord.label) >= 0 && better
+          ? (info.blurb || '') + better
+          : (info.blurb || '')
+      }</small>`;
     const d = card.querySelector('.bfm-qdelta');
     if (['inaccuracy', 'mistake', 'blunder', 'miss'].indexOf(lastRecord.label) >= 0) {
       d.textContent = '−' + lastRecord.drop.toFixed(0) + '%';
       d.className = 'bfm-qdelta bad';
     } else if (lastRecord.label === 'brilliant' || lastRecord.label === 'great') {
-      d.textContent = '★'; d.className = 'bfm-qdelta good';
-    } else if (lastRecord.label === 'best' || lastRecord.label === 'excellent') {
-      d.textContent = '+'; d.className = 'bfm-qdelta good';
+      d.textContent = '!'; d.className = 'bfm-qdelta good';
     } else { d.textContent = ''; d.className = 'bfm-qdelta'; }
   }
   function renderPanel() {
@@ -585,7 +622,7 @@
     const here = allowedHere(), b = boardEl();
     panel.classList.toggle('bfm-hidden', here === 'off');
     panel.classList.toggle('bfm-minimised', !!S.min);
-    panel.querySelector('.bfm-min').textContent = S.min ? '+' : '–';
+    panel.querySelector('.bfm-min').innerHTML = S.min ? ICO.plus : ICO.min;
     panel.querySelector('.bfm-min').setAttribute('aria-label', S.min ? 'Expand panel' : 'Minimise panel');
     const live = panel.querySelector('.bfm-live');
     live.classList.toggle('thinking', S.on && (state === 'thinking' || state === 'idle'));
@@ -632,7 +669,7 @@
     panel.querySelector('.bfm-list').innerHTML = h;
 
     // recent labelled moves
-    const recent = moveLog.slice(-10);
+    const recent = moveLog.slice(-3);
     panel.querySelector('.bfm-recent').innerHTML = recent.length
       ? recent.map((r) => {
         const num = r.moveNo + (r.color === 'w' ? '.' : '…');
@@ -677,7 +714,9 @@
     el.dataset.q = rec.label;
     el.querySelector('.bfm-ti').innerHTML = I.disc(rec.label);
     el.querySelector('.bfm-tt b').textContent = info.label;
-    el.querySelector('.bfm-tt small').textContent = rec.san + ' — ' + info.blurb;
+    const better = rec.bestSan && rec.bestSan !== rec.san && ['inaccuracy','mistake','blunder','miss'].indexOf(rec.label) >= 0
+      ? ' · better was ' + rec.bestSan : '';
+    el.querySelector('.bfm-tt small').textContent = rec.san + ' — ' + (info.blurb || '') + better;
     positionToast();
     el.classList.add('show');
     clearTimeout(toastTimer);
@@ -692,9 +731,11 @@
     const b = boardEl();
     if (!b) { toastEl.style.left = ''; toastEl.style.top = ''; toastEl.style.bottom = '24px'; return; }
     const r = b.getBoundingClientRect();
-    const w = 260;
-    toastEl.style.left = Math.max(12, r.left + r.width / 2 - w / 2) + 'px';
-    toastEl.style.top = (r.top + r.height - 74) + 'px';
+    const w = 300;
+    const left = Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w / 2));
+    const top = Math.max(12, Math.min(innerHeight - 96, r.top + r.height - 88));
+    toastEl.style.left = left + 'px';
+    toastEl.style.top = top + 'px';
     toastEl.style.bottom = 'auto';
   }
 
@@ -713,10 +754,16 @@
     if (!show) { bar.style.display = 'none'; return; }
     const r = b.getBoundingClientRect();
     if (r.width < 50) { bar.style.display = 'none'; return; }
-    const w = Math.max(15, Math.round(r.width * 0.036)), gap = 7;
+    const w = Math.max(16, Math.round(r.width * 0.042)), gap = 9;
+    let bx = S.evalbar === 2 ? r.right + gap : r.left - gap - w;
+    if (bx < 2 || bx + w > innerWidth - 2) {
+      // no room beside the board — fall back to just inside the board edge
+      bx = bx < 2 ? r.left + gap : r.right - gap - w;
+    }
     Object.assign(bar.style, {
-      display: 'block', width: w + 'px', height: r.height + 'px', top: r.top + 'px',
-      left: (S.evalbar === 2 ? r.right + gap : r.left - gap - w) + 'px'
+      display: 'block', width: w + 'px', height: r.height + 'px',
+      top: Math.max(0, r.top) + 'px',
+      left: Math.max(2, Math.min(innerWidth - w - 2, bx)) + 'px'
     });
     const flip = isFlipped(b);
     bar.classList.toggle('flip', flip);
@@ -741,7 +788,15 @@
     l.style.fontSize = Math.max(9, Math.round(w * 0.42)) + 'px';
   }
   addEventListener('scroll', () => { renderBar(); positionToast(); }, { passive: true, capture: true });
-  addEventListener('resize', () => { renderBar(); positionToast(); });
+  addEventListener('resize', () => {
+    if (panel && (S.x !== null || S.y !== null)) {
+      const w = panel.offsetWidth, h = panel.offsetHeight;
+      S.x = Math.max(8, Math.min(Math.max(8, innerWidth - w - 8), S.x === null ? panel.offsetLeft : S.x));
+      S.y = Math.max(8, Math.min(Math.max(8, innerHeight - h - 8), S.y === null ? panel.offsetTop : S.y));
+      panel.style.left = S.x + 'px'; panel.style.top = S.y + 'px'; panel.style.right = 'auto';
+    }
+    renderBar(); positionToast();
+  });
 
   function renderAll() { drawArrows(); renderPanel(); renderBar(); }
 

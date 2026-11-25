@@ -7,26 +7,27 @@ move labels while you play: **Brilliant**, **Great move**, **Best**, **Excellent
 ## Icons — chess.com's own badges
 
 The move labels use **chess.com's own "Move Classification" badge artwork** — the exact PNGs
-from their published icon set (the same ones their Game Review shows), embedded in `icons.js` as
-inline data URIs so nothing can block them: no network requests, no page-CSP issues.
+from their published icon set (the same ones their Game Review shows), at 72×72 and embedded in
+`icons.js` as inline data URIs, so nothing can block them: no network requests, no page-CSP issues,
+and every badge stays sharp from the 13px move strip up to the 30px board corner.
+
+The badge is drawn in four places: the pop-up, the last-move card, the recent-moves strip, and
+directly on the board — chess.com's coloured **square tint** on the squares of the graded move plus
+the badge in the destination square's corner.
 
 | Icon | Label | Disc colour |
 |---|---|---|
-| bright cyan `!!` | **Brilliant** | `#24afd8` |
-| steel-blue `!` | **Great move** | `#547591` |
-| green ★ | **Best move** | `#79ac45` |
-| green 👍 | **Excellent** | `#78ab45` |
-| sage ✓ | **Good** | `#738d5c` |
-| tan book | **Book** | `#d3a078` |
-| yellow `?!` | **Inaccuracy** | `#f0bc2a` |
-| orange `?` | **Mistake** | `#fe9e50` |
-| red `??` | **Blunder** | `#f03623` |
-| salmon ✗ | **Miss** | `#f66f61` |
-| green ➡ | **Forced** | `#8aa480` |
-
-They appear in four places: the pop-up, the last-move card, the recent-moves strip, and directly
-on the board — chess.com's coloured **square tint** on the squares of the graded move plus the
-badge in the destination square's corner.
+| bright cyan `!!` | **Brilliant** | `#19beef` |
+| steel-blue `!` | **Great move** | `#50708a` |
+| green ★ | **Best move** | `#80b54b` |
+| green 👍 | **Excellent** | `#81b64c` |
+| sage ✓ | **Good** | `#77915f` |
+| tan book | **Book** | `#d29e75` |
+| yellow `?!` | **Inaccuracy** | `#f7c631` |
+| orange `?` | **Mistake** | `#ffa459` |
+| red `??` | **Blunder** | `#fa412d` |
+| salmon ✗ | **Miss** | `#fe7668` |
+| green ➡ | **Forced** | `#95af8c` |
 
 > Badge artwork © Chess.com, from their public icon set, used here for personal, non-commercial
 > analysis. Credit them if you republish this.
@@ -65,7 +66,7 @@ Thresholds live in `review.js` (`classify()`), so they are easy to tune.
 
 ## Install (unpacked)
 
-1. Download `bossfrommars-analysis-2.3.0.zip` and unzip it (or use this repository folder).
+1. Download `bossfrommars-analysis-2.4.0.zip` and unzip it (or use this repository folder).
 2. Open `chrome://extensions`, enable **Developer mode**.
 3. **Load unpacked** → pick the unzipped folder (the one containing `manifest.json`).
 4. Open any chess.com analysis board, bot game, or finished game.
@@ -106,8 +107,10 @@ background.js      service worker: routes tab ⇄ offscreen engine messages
 offscreen.html/js  runs Stockfish 19 Lite in a Web Worker
 page.js            MAIN-world script: reads chess.com's board object (FEN, flip)
 content.js         panel, arrows, eval bar, toast, label pipeline
+draw.js            arrow geometry (filled shapes, rounded joins, numbered discs)
 review.js          move classification (labels, book, sacrifice tests)
-icons.js           chess.com badge artwork (inline data URIs) + colours
+icons.js           chess.com badge artwork (inline data URIs) + sampled colours
+img/classifications  the same badges as source PNGs (for reference / re-embedding)
 content.css        all UI styling
 chess.js           chess.js (move generation / SAN / PGN)
 stockfish-*.js/.wasm  Stockfish 19 Lite (single file, no threads)
@@ -125,7 +128,22 @@ python3 -m http.server 8080
 The preview stubs `chrome.*` and the engine, but runs the real `content.js`, `review.js` and
 `content.css`, so you can see every label without touching chess.com.
 
+## What's new in 2.4
+
+* **Redrawn arrows** — filled, rounded shapes instead of a stroked line with a glued-on triangle,
+  so there are no kinks or segment steps, and knight moves get a proper elbow. The best move is
+  green (`#81b64c`), alternates are a dimmer blue (`#4a90d9`), numbered only when several arrows
+  are shown.
+* **Badges re-cut from the originals** at 72px, with the palette re-sampled from the artwork
+  (brilliant is the real bright cyan `#19beef`).
+* **Panel fixed up** — the header glyphs are now inline SVG (no more stray `+` / `⚙` boxes), the
+  saved panel position is clamped to the viewport so nothing is cut off, the last-move text wraps
+  to two lines instead of clipping, and the move strip never overflows.
+* **Smarter wording** — a bad move now says what was better (`better was Nf3`), and the
+  percentage pill only appears on the moves that lost something.
+
 ## Credits
 
 * [Stockfish](https://stockfishchess.org/) — GPLv3, see `STOCKFISH-LICENSE.txt`.
 * [chess.js](https://github.com/jhlywa/chess.js) — BSD.
+* Move-classification badge artwork: chess.com's public icon set (kept from `img/classifications/`).
