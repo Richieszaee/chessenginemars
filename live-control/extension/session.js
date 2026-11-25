@@ -571,28 +571,18 @@ async function persistSession() {
 
 // chooseDesktopMedia() returns a cancel id synchronously and only ever hands
 // the real stream id to its callback, so it must be wrapped in a Promise.
-// targetTab is a Tab object (not an id) and Chrome requires a secure origin
-// for it, so it is only passed for https tabs.
-function chooseTabStream(tab) {
+//
+// targetTab is deliberately NOT passed. Per the Chrome docs, passing it makes
+// the stream usable only "by frames in the given tab" — and session.html is an
+// extension page, not a frame in the shared tab, so capture aborts with
+// "Error starting tab capture". Omitting it makes the stream available to "the
+// calling extension", which is what we are.
+function chooseTabStream() {
   return new Promise((resolve, reject) => {
-    const sources = ['tab'];
-    const secure = tab && typeof tab.url === 'string' && /^https:/i.test(tab.url);
     try {
-      if (secure) {
-        state.desktopRequestId = chrome.desktopCapture.chooseDesktopMedia(sources, tab, resolve);
-      } else {
-        state.desktopRequestId = chrome.desktopCapture.chooseDesktopMedia(sources, resolve);
-      }
+      state.desktopRequestId = chrome.desktopCapture.chooseDesktopMedia(['tab'], resolve);
     } catch (error) {
-      if (!secure) {
-        reject(error);
-        return;
-      }
-      try {
-        state.desktopRequestId = chrome.desktopCapture.chooseDesktopMedia(sources, resolve);
-      } catch (retryError) {
-        reject(retryError);
-      }
+      reject(error);
     }
   });
 }
@@ -604,8 +594,7 @@ async function startSharing() {
   $('shareLabel').textContent = 'Waiting for Chrome…';
   let stream = null;
   try {
-    const tab = await chrome.tabs.get(state.targetTabId);
-    const streamId = await chooseTabStream(tab);
+    const streamId = await chooseTabStream();
     if (!streamId) {
       setupError('Sharing was canceled. Nothing was captured.');
       return;
@@ -648,12 +637,15 @@ async function startSharing() {
     const name = (error && error.name) || '';
     console.warn('Mars Live share failed:', name, error && error.message);
     const denied = name === 'NotAllowedError' || name === 'PermissionDeniedError';
-    const busy = name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError';
+    const busy = name === 'NotReadableError' || name === 'TrackStartError';
+    const aborted = name === 'AbortError';
     setupError(denied
       ? 'Chrome did not grant screen access. Nothing was captured. Try again when you are ready.'
-      : busy
-        ? 'That tab is already being captured. Stop the other share (or close the other Mars Live window) and try again.'
-        : `The tab could not be shared${name ? ` (${name})` : ''}. Close any existing capture of this tab and try again.`);
+      : aborted
+        ? 'Chrome could not start capturing that tab. Pick a different tab, or reload the tab and try again.'
+        : busy
+          ? 'That tab is already being captured. Stop the other share (or close the other Mars Live window) and try again.'
+          : `The tab could not be shared${name ? ` (${name})` : ''}. Close any existing capture of this tab and try again.`);
   } finally {
     $('shareButton').disabled = false;
     $('shareLabel').textContent = 'Choose tab & share';
