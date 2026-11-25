@@ -2,28 +2,41 @@
 
 **Consent-first shared browser control for Chrome.**
 
-Mars Live lets a controller view and operate **one web tab** while the host stays in charge. It is a standalone Chrome extension plus a small local relay and browser controller. The existing Chess.com analysis extension at the repository root is unchanged.
+Mars Live lets a controller view and operate **one web tab** while the host stays in charge. It is a standalone Chrome extension plus **one PHP file** that acts as the bridge. There is no controller website — the controller UI is inside the extension too, so both people install the same extension. The existing Chess.com analysis extension at the repository root is unchanged.
 
 ## What makes it consent-first
 
 1. **Pin required.** The popup asks the user to pin Mars Live before starting a session.
 2. **Chrome accepts the share.** The native `desktopCapture` picker is used; no tab is captured before the user chooses it.
-3. **A controller is view-only.** Pairing with the six-digit code does not grant input access.
+3. **A controller is view-only.** Joining with the six-digit PIN does not grant input access.
 4. **Input is separately approved.** The host must click **Allow control** before mouse or keyboard events are accepted.
 5. **The host can always interrupt.** The shared tab has a persistent Mars Live banner with **Pause** and **Stop**. The local mouse is never blocked.
-6. **Sessions are ephemeral.** Closing the session window stops capture and invalidates the pairing code. The relay keeps sessions and frames in memory only.
+6. **Sessions are ephemeral.** Closing the session window stops capture and invalidates the PIN. The bridge keeps sessions in short-lived files that expire on their own.
 
 ## Quick start
 
-### 1. Run the controller relay
+### 1. Put `bridge.php` on a PHP host
+
+Copy **`live-control/bridge/bridge.php`** to any ordinary PHP hosting (shared hosting, cPanel, a VPS, a home server). It needs:
+
+- PHP 7.4 or newer with the `json` extension (standard in every PHP build)
+- A writable `data/` directory **next to** `bridge.php`
+
+The bridge writes small session files into that `data/` folder and cleans them up itself. There is no database, no Node.js, no WebSocket server, and no build step.
+
+The address will look like `https://your-domain.com/mars-live/bridge.php`.
+
+<details>
+<summary>Local testing with PHP's built-in server</summary>
 
 ```bash
-cd live-control/relay
-npm install
-npm start
+cd live-control/bridge
+php -S 127.0.0.1:8080
 ```
 
-The default address is `http://127.0.0.1:8787`, and the default WebSocket URL is `ws://127.0.0.1:8787/ws`.
+The bridge is then at `http://127.0.0.1:8080/bridge.php`, which is the extension's default address.
+
+</details>
 
 ### 2. Load the extension in Chrome
 
@@ -33,36 +46,47 @@ The default address is `http://127.0.0.1:8787`, and the default WebSocket URL is
 4. Select the **`live-control/extension`** folder (the folder containing `manifest.json`).
 5. Click Chrome's puzzle icon and **pin Mars Live** to the toolbar.
 
-### 3. Start a session from a web tab
+To install from the zip instead: unzip `mars-live-extension.zip` and load the resulting folder the same way.
+
+### 3. Set the bridge address once
+
+Click the pinned **Mars Live** icon, open **Connection settings**, paste the `bridge.php` address, and click **Save**. Chrome asks for permission to reach that host — this is normal and only happens once.
+
+### 4. Start a session from a web tab
 
 1. Open a regular `http://` or `https://` tab.
-2. Click the pinned **Mars Live** extension.
-3. Confirm the relay address (the local default is already filled in), then click **Connect**.
-4. In the session window, click **Choose tab & share**.
-5. Select the intended tab in Chrome's native prompt and accept.
+2. Click the pinned **Mars Live** extension and click **Connect**.
+3. In the session window, click **Choose tab & share**.
+4. Select the intended tab in Chrome's native prompt and accept.
 
 The session window shows the live preview and a six-digit PIN. Chrome's sharing indicator and the Mars Live banner remain visible on the shared tab. The popup also shows **Your PIN** when you reopen it during a live session.
 
-### 4. Connect a controller
+### 5. Connect a controller
 
-1. Open `http://127.0.0.1:8787/connect` in the controller browser, or click **Open controller website** in the Mars Live popup/session window. The invite link includes the PIN and fills it in automatically.
-2. Enter the six-digit PIN if it is not already filled in, then click **Connect**.
-3. The controller arrives **view-only**.
+Both people use the same extension — there is no website to open.
+
+1. On the other computer, install Mars Live and set the **same** bridge address in **Connection settings**.
+2. Click the pinned **Mars Live** icon and click **Join with PIN**.
+3. Enter the six-digit PIN and click **Connect**. The controller arrives **view-only**.
 4. Click **Request control** in the controller.
 5. The host reviews the request in the session window or the tab banner and clicks **Allow control**.
 
 Click the shared screen in the controller to focus it for keyboard input. Mouse movement, clicks, dragging, scrolling, and keyboard input are then sent to the shared tab. The host can pause, revoke, or stop at any time. The local mouse remains usable.
 
+**Tip:** the host can click **Copy invite details** in the popup and send one message that already contains the bridge address and the PIN.
+
 ## Different Wi-Fi networks
 
-Mars Live also works across different networks when the relay has a public HTTPS/WSS address. See [`REMOTE.md`](REMOTE.md) for the quick Cloudflare Tunnel setup and a permanent container deployment option. You can paste an `https://…trycloudflare.com` address directly into the extension's relay field; it is converted to the matching `wss://…/ws` URL.
+Mars Live works across different networks as soon as `bridge.php` is reachable from both computers — for example on ordinary shared hosting or any VPS with a domain. Nothing else is required: no tunnel, no WebSocket port, no Node process.
+
+See [`REMOTE.md`](REMOTE.md) for hosting notes, HTTPS, and the `data/` permissions.
 
 ## Security model and scope
 
 ### What is shared
 
 - Only the tab selected in Chrome's native picker.
-- The captured viewport is sent as live JPEG frames through the configured relay while a controller is connected.
+- The captured viewport is sent as live JPEG frames through the configured bridge while a controller is connected.
 - Mouse and keyboard input is accepted only while the host has granted control and has not paused it.
 - No recording, frame storage, account, or persistent remote-access credential is created.
 
@@ -77,9 +101,11 @@ This is a **web-tab controller**, not a desktop remote-control tool. It does not
 
 Chrome displays its debugger indicator when input is enabled because Mars Live uses the Chrome DevTools Protocol to deliver trusted mouse/keyboard events to the selected tab. That indicator is intentional and should not be hidden.
 
-### Relay trust
+### Bridge trust
 
-The default relay binds to `127.0.0.1` and is intended for local use. Frames pass through the relay; they are **not end-to-end encrypted**. For remote use, deploy the relay on a trusted host, use HTTPS/WSS, and enter the `wss://` URL in the extension's **Controller relay** settings. Do not expose the default plain-HTTP relay to an untrusted network. The six-digit code is a short-lived pairing secret, not a substitute for network access controls.
+Frames pass through the bridge; they are **not end-to-end encrypted**. Host the bridge on infrastructure you control and use HTTPS. The bridge stores only the latest frame per session, in memory-tiny files that expire; it never writes an archive.
+
+Tokens are 256-bit random values, stored on the bridge only as SHA-256 hashes and compared in constant time. The six-digit PIN is a short-lived pairing secret, not a substitute for network access controls — anyone who learns the PIN can join as a viewer, but they still cannot send input until the host clicks **Allow control**.
 
 ## Permissions
 
@@ -89,34 +115,51 @@ The default relay binds to `127.0.0.1` and is intended for local use. Frames pas
 | `desktopCapture` | Opens Chrome's native tab-sharing picker. |
 | `scripting` | Shows the consent/stop banner in the selected tab. |
 | `debugger` | Sends trusted mouse and keyboard events to the selected tab after approval. |
-| `storage` | Saves the relay URL and the current session window locally. |
-| Optional host permissions | Requests access to the configured HTTP(S)/WS(S) relay origin when needed. |
+| `storage` | Saves the bridge address and the current session window locally. |
+| Optional host permissions | Requests access to the configured HTTP(S) bridge origin when needed. |
 
 ## Troubleshooting
 
 - **Start button stays disabled:** pin Mars Live using Chrome's puzzle menu, then click **Refresh** in the popup. The active tab must be a regular web page.
-- **Relay offline:** run `npm start` in `live-control/relay` and check the WebSocket URL. The controller page's badge shows the health check result.
-- **Controller cannot join:** confirm the code is current, the session window is still open, and no other controller is already connected.
+- **PHP bridge offline:** open the bridge address directly in a browser. A working bridge prints `{"ok":true,"bridge":"php","sessions":0}`. If you see a blank page or an error, check the PHP version and that `data/` is writable.
+- **Controller cannot join:** confirm the PIN is current, the session window is still open, and no other controller is already connected.
 - **Allow control fails:** close DevTools or another extension debugger attached to the target tab, then request control again.
 - **Banner disappears after navigation:** the session page attempts to reinject it. If Chrome blocks scripting on the destination, use the session window's **Stop session** button.
 
 ## Development
 
+There is nothing to build for the bridge — it is a single PHP file. The extension is plain HTML/CSS/JS with no bundler.
+
 ```bash
-cd live-control/relay
-npm run check
-npm test
+php -l live-control/bridge/bridge.php
 ```
 
-The tests cover the controller page and health routes, denial of input before host approval, host-approved input and frame relay, and session teardown.
+To exercise the protocol quickly, open the bridge with `?action=health` in a browser.
 
 ### File map
 
-- `extension/` — Manifest V3 extension: popup, live session panel, tab banner, and consent logic.
-- `relay/server.js` — In-memory WebSocket relay and static controller server.
-- `relay/public/` — Browser controller UI.
-- `relay/server.test.js` — Protocol and lifecycle tests.
+- `extension/` — Manifest V3 extension: popup, host session panel, in-extension controller, tab banner, and consent logic.
+- `bridge/bridge.php` — The whole bridge: file-based sessions, HTTP polling, input and frame relay.
+- `bridge/data/` — Writable session store. Protected by `.htaccess`; keep it out of version control.
+- `bridge/.htaccess` — Sends `X-Content-Type-Options: nosniff`.
 
-### Relay message contract
+### Bridge API contract
 
-The extension registers as host with `host-register`; the controller joins with `controller-join`. The host publishes `host-state` and `control-result` messages. The controller sends `request-control` and, only after host approval, `input` messages. Live frames are `frame` messages containing a JPEG data URL. `host-end`, host disconnect, or window close tears down the session and closes the controller.
+Every request is a JSON `POST` to `bridge.php` with an `action` field. Responses are JSON with `ok: true` on success, or `ok: false` plus `error` and `message` on failure. Parameters may also arrive as `$_GET` or form fields.
+
+| Action | Params | Result |
+| --- | --- | --- |
+| `health` | — | `{ok, bridge:"php", sessions}` |
+| `register` | `code`, `host_token` | Creates or resumes the session. `409 code-in-use` if a live host holds a different token. |
+| `join` | `code` | Returns a fresh `controller_token`. `404 not-found`, `409 host-offline`, `409 already-connected`. |
+| `host_poll` | `code`, `host_token`, `after` | `state` + events addressed to the host. |
+| `controller_poll` | `code`, `controller_token`, `after`, `after_frame` | `state` + events + optional `frame`. |
+| `state` | `code`, `host_token`, `state` | Host pushes consent flags (`controlGranted`, `paused`, `requestPending`, `targetTitle`). |
+| `control` | `code`, `host_token`, `grant` | Sets `control_granted` and queues `control-result` for the controller. |
+| `request_control` | `code`, `controller_token` | Queues `request-control` for the host. |
+| `input` | `code`, `controller_token`, `input` | `403 control-denied` unless granted and unpaused. Rate limited to 120/s. |
+| `frame` | `code`, `host_token`, `sequence`, `width`, `height`, `data` | Stores the latest JPEG data URL. `413` above 1.6 MB. |
+| `leave` | `code`, `controller_token` | Removes the controller and queues `controller-left`. |
+| `end` | `code`, `host_token` | Deletes the session and queues `session-ended`. |
+
+Events carry a monotonically increasing `id`, so each peer polls with the last `id` it has seen. Sessions expire after 30 minutes, and a peer that stops polling for 5 seconds is treated as offline.

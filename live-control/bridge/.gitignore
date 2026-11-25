@@ -1,0 +1,3 @@
+# Session files are runtime state, never source.
+data/session_*.json
+data/*.lock

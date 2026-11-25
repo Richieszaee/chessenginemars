@@ -29,9 +29,7 @@
   ],
   "optional_host_permissions": [
     "http://*/*",
-    "https://*/*",
-    "ws://*/*",
-    "wss://*/*"
+    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js"

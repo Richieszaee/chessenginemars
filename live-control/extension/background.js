@@ -3,7 +3,7 @@
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason !== 'install') return;
   try {
-    await chrome.storage.local.set({ marsLiveRelayUrl: 'ws://127.0.0.1:8787/ws' });
+    await chrome.storage.local.set({ marsLiveBridgeUrl: 'http://127.0.0.1:8080/bridge.php' });
   } catch (error) {
     // The popup supplies the same safe default if storage is unavailable.
   }

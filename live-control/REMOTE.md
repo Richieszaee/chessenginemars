@@ -1,66 +1,110 @@
-# Mars Live across different Wi-Fi networks
+# Hosting the Mars Live bridge on PHP
 
-Mars Live does not need both computers on the same Wi-Fi. It needs a relay that both computers can reach over the internet. The extension is installed only on the computer sharing its tab; the other computer uses the browser controller.
+Mars Live needs one thing reachable from both computers: `bridge.php` on a PHP host. There is no Node process, no WebSocket port, and no database. This guide covers ordinary hosting and different Wi-Fi networks.
 
-The easiest temporary setup is a Cloudflare Quick Tunnel. A Quick Tunnel URL changes when the tunnel restarts. For a permanent address, deploy the relay to a Node host instead.
+## What the host must provide
 
-## Quick setup: different Wi-Fi in a few minutes
+| Requirement | Notes |
+| --- | --- |
+| PHP 7.4+ | `json` and `hash` are core extensions and are always present. |
+| A writable `data/` directory | Next to `bridge.php`. The bridge creates session files here. |
+| HTTPS | Strongly recommended. Frames pass through the bridge in plain form. |
 
-### On the computer sharing its browser
+Typical shared hosting (cPanel, DirectAdmin, Plesk) already meets all three.
 
-1. Install [Cloudflare's `cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) and keep it available in your terminal.
-2. Start the relay locally:
+## Upload
 
-   ```bash
-   cd live-control/relay
-   npm install
-   npm start
-   ```
+Copy these files, keeping the folder structure:
 
-3. In a second terminal, start a temporary public tunnel:
-
-   ```bash
-   cloudflared tunnel --url http://127.0.0.1:8787
-   ```
-
-4. Copy the printed `https://…trycloudflare.com` address. Keep both terminals open.
-5. Open Mars Live's **Controller relay** settings and paste that HTTPS address. The extension converts it to `wss://…/ws` and asks Chrome for permission to use that relay.
-6. Start a live session and choose the tab in Chrome's share prompt.
-
-### On the other computer, anywhere with internet
-
-1. Open the same `https://…trycloudflare.com` address in a browser.
-2. Enter the six-digit PIN from the host's Mars Live window, or use the popup’s **Open controller website** button to fill it in automatically.
-3. Click **Connect**, then **Request control**.
-4. The host clicks **Allow control**. Until then, the controller is view-only.
-
-The host can pause, revoke, or stop the session at any time, and the local mouse always works.
-
-## Permanent internet relay
-
-You can run the same relay on a Node hosting service, VPS, home server, or cloud VM:
-
-```bash
-cd live-control/relay
-npm ci
-HOST=0.0.0.0 PORT=8787 npm start
+```
+mars-live/
+├── bridge.php
+├── .htaccess
+└── data/
+    ├── .htaccess
+    └── .gitkeep
 ```
 
-Put HTTPS/WSS in front of it with a reverse proxy or your host's managed TLS. Then:
-
-- Set the extension's **Controller relay** to `wss://your-relay.example.com/ws`.
-- Open `https://your-relay.example.com` on the controller computer.
-
-For a quick container deployment, use the included `Dockerfile` in `live-control/relay/`:
+Then make `data/` writable by PHP:
 
 ```bash
-docker build -t mars-live-relay .
-docker run --rm -p 8787:8787 -e HOST=0.0.0.0 mars-live-relay
+chmod 775 data
+# If PHP runs as a different user than the owner:
+# chown -R www-data:www-data data   (Debian/Ubuntu, adjust to your host)
 ```
 
-## Important security notes
+On shared hosting, use the file manager's permission dialog and set `data/` to `755` or `775`. If the bridge cannot write, it answers with `{"ok":false,"error":"storage",...}` instead of failing silently.
 
-- The relay and tunnel provider can see the live tab frames. This is **not end-to-end encrypted**. Use a provider and network you trust, and close the tunnel when you are done.
-- Do not expose the default plain-HTTP relay directly to the internet. Use HTTPS/WSS.
-- The public controller URL is not the pairing secret. The six-digit code is short-lived, and mouse/keyboard control still requires the host's explicit approval.
-- A Quick Tunnel is for temporary use. Use a persistent relay with a stable address for regular sessions.
+## Verify
+
+Open the bridge directly in a browser:
+
+```
+https://your-domain.com/mars-live/bridge.php
+```
+
+A healthy bridge prints:
+
+```json
+{"ok":true,"bridge":"php","sessions":0}
+```
+
+Then open the same address with `?action=health` to confirm routing works.
+
+If you see a blank page, enable `display_errors` temporarily or check the PHP error log. The most common causes are an unwritable `data/` folder or a host running PHP older than 7.4.
+
+## Configure the extension
+
+In both browsers — the host's and the controller's:
+
+1. Click the pinned **Mars Live** icon.
+2. Open **Connection settings**.
+3. Paste the full `bridge.php` address, including `https://` and the filename.
+4. Click **Save**. Chrome asks for permission to reach that host once.
+
+The address is stored per browser. The host can click **Copy invite details** and send one message containing the bridge address and the PIN.
+
+## Local testing
+
+```bash
+cd live-control/bridge
+php -S 127.0.0.1:8080
+```
+
+The bridge is then at `http://127.0.0.1:8080/bridge.php`, which is the extension's default address. This is only for testing on one machine — a different computer cannot reach `127.0.0.1`.
+
+## Session files and cleanup
+
+The bridge writes `data/session_<PIN>.json` and a matching `.lock` file. Each write is serialized with `flock` and committed by atomic rename, so concurrent polls cannot corrupt a session.
+
+- Sessions expire after **30 minutes** and are removed on the next request.
+- A host or controller that stops polling for **5 seconds** is treated as offline.
+- Only the **latest** frame per session is kept; nothing is archived.
+- `data/.htaccess` denies direct web access to the folder on Apache. On nginx, deny it explicitly:
+
+  ```nginx
+  location ~* /mars-live/data/ {
+      deny all;
+      return 403;
+  }
+  ```
+
+## nginx note
+
+The included `.htaccess` files only apply to Apache. On nginx, add the `data/` deny rule above, and optionally:
+
+```nginx
+location ~ \.php$ {
+    include fastcgi_params;
+    fastcgi_param HTTP_PROXY "";
+    fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+}
+add_header X-Content-Type-Options nosniff;
+```
+
+## Security notes
+
+- Frames pass through the bridge **unencrypted at the application layer**. Use HTTPS so the transport is encrypted, and host the bridge on infrastructure you control.
+- The six-digit PIN is a short-lived pairing secret. Anyone who learns it can join as a **viewer**, but cannot send input until the host clicks **Allow control**.
+- Tokens are 256-bit random values, stored only as SHA-256 hashes and compared in constant time.
+- Sessions auto-expire. Nothing persists after `end` or after the TTL passes.

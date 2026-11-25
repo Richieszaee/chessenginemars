@@ -57,6 +57,11 @@ h1 em { color: var(--lime); font-style: normal; }
 .primary-button svg { width: 17px; height: 17px; }
 .primary-button:hover:not(:disabled) { background: #d1ff69; transform: translateY(-1px); }
 .primary-button:disabled { color: #77878b; border-color: #2d393f; background: #1a242a; box-shadow: none; cursor: not-allowed; }
+.secondary-button { width: 100%; min-height: 35px; margin-top: 8px; padding: 0 12px; border: 1px solid #34434a; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #c0cbcc; background: rgba(255, 255, 255, .035); font-size: 10px; font-weight: 700; cursor: pointer; }
+.secondary-button svg { width: 15px; height: 15px; }
+.secondary-button:hover { background: rgba(255, 255, 255, .07); }
+.invite-note { color: #71858a; font-size: 8px; }
+.relay-body code { color: #b9cac8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8px; }
 .connect-hint { margin: 7px 0 0; color: #71858a; font-size: 8px; text-align: center; }
 .quick-steps { display: flex; align-items: center; gap: 7px; margin-top: 16px; padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .quick-steps span { display: inline-flex; align-items: center; gap: 4px; color: #899b9f; font-size: 8px; white-space: nowrap; }

@@ -70,12 +70,11 @@
         <div class="pair-copy">
           <span class="mini-label">CONTROLLER PAIRING CODE</span>
           <h2 id="pairTitle">One controller.<br>No standing access.</h2>
-          <p id="pairHelp">Open the controller page and enter this code. Control is still locked until you approve it.</p>
+          <p id="pairHelp">On the other computer, open Mars Live → Join with PIN. Control stays locked until you approve it.</p>
         </div>
         <div class="code-wrap">
           <output id="pairCode" class="pair-code" aria-live="polite">······</output>
-          <button id="copyCode" class="copy-button" type="button">Copy code</button>
-          <button id="openControllerButton" class="copy-button website-button" type="button" disabled>Open controller website</button>
+          <button id="copyCode" class="copy-button" type="button">Copy PIN</button>
         </div>
       </section>
 
@@ -101,7 +100,7 @@
           <div class="button-row">
             <button id="pauseControlButton" class="secondary-button" type="button" hidden>Pause control</button>
             <button id="revokeControlButton" class="secondary-button danger-text" type="button" hidden>Revoke control</button>
-            <button id="retryRelayButton" class="secondary-button" type="button" hidden>Reconnect relay</button>
+            <button id="retryRelayButton" class="secondary-button" type="button" hidden>Reconnect bridge</button>
           </div>
         </div>
       </section>
@@ -110,7 +109,7 @@
         <p><strong>Need a hard stop?</strong> End sharing and disconnect the controller.</p>
         <button id="stopButton" class="stop-button" type="button">Stop session</button>
       </div>
-      <p class="fine-print">Frames travel through your chosen relay and are not stored there. Closing this window also ends the session.</p>
+      <p class="fine-print">Frames travel through your PHP bridge and are not stored there. Closing this window also ends the session.</p>
     </section>
 
     <section id="endedView" class="view ended-view" hidden>

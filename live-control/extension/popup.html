@@ -15,7 +15,7 @@
         </span>
         <span class="brand-name">Mars <b>Live</b></span>
       </div>
-      <span class="top-tag">YOU’RE IN CHARGE</span>
+      <span class="top-tag">PHP BRIDGE</span>
     </header>
 
     <section id="connectView" class="view">
@@ -44,6 +44,12 @@
       </button>
       <p id="connectHint" class="connect-hint">Chrome will ask you to choose a tab.</p>
 
+      <button id="joinButton" class="secondary-button" type="button">
+        <span>Join with PIN</span>
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <p class="connect-hint">Use this on the other computer.</p>
+
       <div class="quick-steps" aria-label="How it works">
         <span><b>1</b> Connect</span><i></i>
         <span><b>2</b> Share tab</span><i></i>
@@ -57,12 +63,12 @@
           <span class="chevron" aria-hidden="true">⌄</span>
         </summary>
         <div class="relay-body">
-          <label for="relayUrl">Relay / website address</label>
+          <label for="relayUrl">PHP bridge address</label>
           <div class="relay-row">
-            <input id="relayUrl" type="text" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8787">
+            <input id="relayUrl" type="text" spellcheck="false" autocomplete="off" placeholder="https://your-domain.com/mars-live/bridge.php">
             <button id="saveRelay" type="button">Save</button>
           </div>
-          <p>Use the included local relay, or paste your HTTPS tunnel address.</p>
+          <p>Upload <code>bridge.php</code> to your PHP hosting and paste its HTTPS address here.</p>
         </div>
       </details>
     </section>
@@ -75,21 +81,21 @@
         </div>
         <span class="live-badge"><i></i> LIVE</span>
       </div>
-      <p class="intro">Send this PIN to the person you want to invite. They start with view only.</p>
+      <p class="intro">Send the bridge address and PIN to the person you want to invite. They choose <strong>Join with PIN</strong> in Mars Live and start with view only.</p>
 
       <div class="pin-card">
         <output id="sessionPin" class="session-pin" aria-live="polite">······</output>
         <button id="copyPin" class="copy-button" type="button">Copy PIN</button>
       </div>
 
-      <button id="openWebsiteButton" class="primary-button" type="button">
-        <span>Open controller website</span>
+      <button id="copyInviteButton" class="primary-button" type="button">
+        <span>Copy invite details</span>
         <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <p class="connect-hint">The website opens with your PIN filled in.</p>
+      <p class="connect-hint">On the other computer, open Mars Live → Join with PIN.</p>
 
       <div class="session-links">
-        <button id="copyInviteButton" class="text-button" type="button">Copy invite link</button>
+        <span class="invite-note">Bridge address + PIN included</span>
         <button id="openSessionButton" class="text-button" type="button">Open live controls</button>
       </div>
 

@@ -3,12 +3,13 @@ const state = {
   targetTabId: null,
   targetTitle: '',
   targetUrl: '',
-  relayUrl: '',
+  bridgeUrl: '',
   code: '',
   token: '',
   sharing: false,
   ended: false,
-  relayOnline: false,
+  registered: false,
+  bridgeOnline: false,
   controllerConnected: false,
   controlGranted: false,
   paused: false,
@@ -18,10 +19,15 @@ const state = {
   startedAt: 0,
   sequence: 0,
   stream: null,
-  socket: null,
+  pollTimer: 0,
   frameTimer: 0,
   durationTimer: 0,
   toastTimer: 0,
+  pollInFlight: false,
+  frameInFlight: false,
+  stateInFlight: false,
+  stateDirty: false,
+  lastEventId: 0,
   inputQueue: Promise.resolve(),
   queuedInputs: 0,
   inputErrorShown: false,
@@ -62,17 +68,26 @@ function randomToken() {
   return Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function controllerWebsiteUrl() {
+async function bridgeRequest(action, payload = {}, keepalive = false) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), keepalive ? 2000 : 8000);
   try {
-    const relay = new URL(state.relayUrl);
-    relay.protocol = relay.protocol === 'wss:' ? 'https:' : 'http:';
-    relay.pathname = '/connect';
-    relay.hash = '';
-    relay.search = '';
-    if (state.code) relay.searchParams.set('pin', state.code);
-    return relay.href;
-  } catch (error) {
-    return '';
+    const response = await fetch(state.bridgeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...payload }),
+      cache: 'no-store',
+      keepalive,
+      signal: controller.signal
+    });
+    let data = null;
+    try { data = await response.json(); } catch (error) {}
+    if (!response.ok || !data || data.ok !== true) {
+      throw new Error(data && data.message ? data.message : 'PHP bridge request failed.');
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -80,12 +95,12 @@ async function initialize() {
   try {
     const saved = await chrome.storage.local.get('marsLivePending');
     const pending = saved && saved.marsLivePending;
-    if (!pending || !Number.isInteger(pending.targetTabId) || !pending.relayUrl) {
+    if (!pending || !Number.isInteger(pending.targetTabId) || !pending.bridgeUrl) {
       setupError('Open Mars Live from the web tab you want to share.');
       return;
     }
     state.targetTabId = pending.targetTabId;
-    state.relayUrl = pending.relayUrl;
+    state.bridgeUrl = pending.bridgeUrl;
     await chrome.storage.local.remove('marsLivePending');
 
     const tab = await chrome.tabs.get(state.targetTabId);
@@ -105,12 +120,12 @@ async function initialize() {
 
 function setConnectionPill() {
   const pill = $('connectionPill');
-  pill.classList.toggle('online', state.relayOnline);
-  pill.classList.toggle('offline', !state.relayOnline && state.sharing);
+  pill.classList.toggle('online', state.bridgeOnline);
+  pill.classList.toggle('offline', !state.bridgeOnline && state.sharing);
   let text = 'Getting ready';
-  if (state.sharing && !state.relayOnline) text = 'Relay offline';
+  if (state.sharing && !state.bridgeOnline) text = 'PHP bridge offline';
   else if (state.sharing && state.controllerConnected) text = 'Controller connected';
-  else if (state.sharing) text = 'Relay online · waiting';
+  else if (state.sharing) text = 'PHP bridge online · waiting';
   else if (state.ended) text = 'Session closed';
   pill.querySelector('span').textContent = text;
 }
@@ -127,11 +142,28 @@ function publicState() {
 }
 
 function sendHostState() {
-  if (!state.socket || state.socket.readyState !== WebSocket.OPEN || !state.relayOnline || state.ended) return;
-  state.socket.send(JSON.stringify({
-    type: 'host-state',
-    ...publicState()
-  }));
+  if (!state.registered || state.ended || !state.sharing) return;
+  if (state.stateInFlight) {
+    state.stateDirty = true;
+    return;
+  }
+  state.stateInFlight = true;
+  bridgeRequest('state', {
+    code: state.code,
+    host_token: state.token,
+    state: publicState()
+  }).catch(() => {
+    if (!state.ended) {
+      state.bridgeOnline = false;
+      render();
+    }
+  }).finally(() => {
+    state.stateInFlight = false;
+    if (state.stateDirty) {
+      state.stateDirty = false;
+      sendHostState();
+    }
+  });
 }
 
 function sendBannerState() {
@@ -141,10 +173,9 @@ function sendBannerState() {
 
 function render() {
   $('pairCode').textContent = state.code || '······';
-  $('openControllerButton').disabled = !state.code || !controllerWebsiteUrl();
   $('pairHelp').textContent = state.controllerConnected
     ? 'Controller connected. Sharing is view-only until you allow control.'
-    : 'Open the controller page and enter this code. Control is still locked until you approve it.';
+    : 'On the other computer, open Mars Live → Join with PIN. Control stays locked until you approve it.';
   $('controllerStatus').textContent = state.requestPending
     ? 'Control requested'
     : state.controlGranted
@@ -162,7 +193,8 @@ function render() {
   $('pauseControlButton').hidden = !state.controlGranted;
   $('pauseControlButton').textContent = state.paused ? 'Resume control' : 'Pause control';
   $('revokeControlButton').hidden = !state.controlGranted;
-  $('retryRelayButton').hidden = state.relayOnline || state.ended;
+  $('retryRelayButton').hidden = state.bridgeOnline || state.ended;
+  $('retryRelayButton').textContent = 'Reconnect bridge';
   $('controlDescription').textContent = state.controlGranted
     ? state.paused
       ? 'The controller can still see this tab, but mouse and keyboard input is paused.'
@@ -217,97 +249,112 @@ async function detachDebugger() {
   state.debuggerAttached = false;
 }
 
-function connectRelay() {
+function connectBridge() {
   if (!state.code || state.ended) return;
-  if (state.socket) {
-    state.socket.onclose = null;
-    try { state.socket.close(); } catch (error) {}
-    state.socket = null;
-  }
-  state.relayOnline = false;
+  state.registered = false;
+  state.bridgeOnline = false;
   state.controllerConnected = false;
   state.controlGranted = false;
   state.requestPending = false;
   state.paused = false;
   render();
-  let socket;
-  try {
-    socket = new WebSocket(state.relayUrl);
-  } catch (error) {
-    toast('The relay URL is not valid. Start a new session to change it.');
-    return;
-  }
-  state.socket = socket;
-  socket.addEventListener('open', () => {
-    if (state.socket !== socket || state.ended) return;
-    socket.send(JSON.stringify({ type: 'host-register', code: state.code, token: state.token }));
+  bridgeRequest('register', {
+    code: state.code,
+    host_token: state.token
+  }).then(() => {
+    if (state.ended) return;
+    state.registered = true;
+    state.bridgeOnline = true;
+    startHostPolling();
+    render();
+    sendHostState();
+    toast('PHP bridge connected. Waiting for the other person to join with the PIN.');
+  }).catch(() => {
+    if (state.ended) return;
+    state.bridgeOnline = false;
+    render();
+    toast('PHP bridge is unreachable. Check the bridge address, then reconnect.');
   });
-  socket.addEventListener('message', (event) => {
-    if (state.socket !== socket || state.ended) return;
-    let message;
-    try { message = JSON.parse(event.data); } catch (error) { return; }
-    handleRelayMessage(message);
-  });
-  socket.addEventListener('close', () => {
-    if (state.socket !== socket || state.ended) return;
-    state.socket = null;
-    state.relayOnline = false;
+}
+
+function handleHostEvent(event) {
+  if (!event || typeof event.type !== 'string') return;
+  if (event.type === 'controller-joined') {
+    state.controllerConnected = true;
+    state.controlGranted = false;
+    state.requestPending = false;
+    state.paused = false;
+    broadcastState();
+    toast('Controller connected in view-only mode. You decide whether to allow control.');
+  } else if (event.type === 'controller-left') {
     state.controllerConnected = false;
     state.controlGranted = false;
     state.requestPending = false;
     state.paused = false;
     detachDebugger().finally(() => {
       broadcastState();
-      if (state.sharing) toast('Relay disconnected. Remote control is off until you reconnect.');
+      toast('Controller disconnected. Remote input is off.');
     });
+  } else if (event.type === 'request-control') {
+    if (!state.controllerConnected || state.controlGranted || state.ended) return;
+    state.requestPending = true;
+    broadcastState();
+    toast('A controller requested mouse and keyboard control.');
+  } else if (event.type === 'input') {
+    handleInput(event.payload);
+  }
+}
+
+function hostPoll() {
+  if (state.ended || !state.registered || state.pollInFlight) return;
+  state.pollInFlight = true;
+  bridgeRequest('host_poll', {
+    code: state.code,
+    host_token: state.token,
+    after: state.lastEventId
+  }).then((response) => {
+    if (state.ended) return;
+    state.bridgeOnline = true;
+    const remote = response.state || {};
+    if (remote.ended) {
+      stopSession('The PHP bridge closed this session.');
+      return;
+    }
+    const wasConnected = state.controllerConnected;
+    state.controllerConnected = remote.controllerConnected === true;
+    if (wasConnected && !state.controllerConnected) {
+      state.controlGranted = false;
+      state.requestPending = false;
+      state.paused = false;
+      detachDebugger().finally(() => broadcastState());
+    }
+    const events = Array.isArray(response.events) ? response.events : [];
+    for (const event of events) {
+      if (Number.isInteger(event.id) && event.id > state.lastEventId) state.lastEventId = event.id;
+      handleHostEvent(event);
+    }
+    render();
+    sendBannerState();
+  }).catch(() => {
+    if (state.ended) return;
+    state.bridgeOnline = false;
+    state.controllerConnected = false;
+    state.controlGranted = false;
+    state.requestPending = false;
+    state.paused = false;
+    detachDebugger().finally(() => {
+      broadcastState();
+      toast('PHP bridge connection lost. Remote control is off until you reconnect.');
+    });
+  }).finally(() => {
+    state.pollInFlight = false;
   });
 }
 
-function handleRelayMessage(message) {
-  if (!message || typeof message.type !== 'string') return;
-  switch (message.type) {
-    case 'host-ready':
-      state.relayOnline = true;
-      render();
-      sendHostState();
-      break;
-    case 'controller-joined':
-      state.controllerConnected = true;
-      state.controlGranted = false;
-      state.requestPending = false;
-      state.paused = false;
-      broadcastState();
-      toast('Controller connected in view-only mode. You decide whether to allow control.');
-      break;
-    case 'controller-left':
-      state.controllerConnected = false;
-      state.controlGranted = false;
-      state.requestPending = false;
-      state.paused = false;
-      detachDebugger().finally(() => {
-        broadcastState();
-        toast('Controller disconnected. Remote input is off.');
-      });
-      break;
-    case 'request-control':
-      if (!state.controllerConnected || state.controlGranted || state.ended) return;
-      state.requestPending = true;
-      broadcastState();
-      toast('A controller requested mouse and keyboard control.');
-      break;
-    case 'input':
-      handleInput(message);
-      break;
-    case 'control-result':
-      // The controller receives these; ignore any accidental echo.
-      break;
-    case 'error':
-      if (message.code === 'code-in-use') toast('This pairing code is already in use. Stop and start a new session.');
-      else if (message.message) toast(String(message.message).slice(0, 160));
-      break;
-    default:
-      break;
-  }
+function startHostPolling() {
+  clearInterval(state.pollTimer);
+  state.pollTimer = setInterval(hostPoll, 500);
+  hostPoll();
 }
 
 async function approveControl() {
@@ -320,10 +367,8 @@ async function approveControl() {
     state.paused = false;
     state.requestPending = false;
     state.inputErrorShown = false;
-    if (state.socket && state.socket.readyState === WebSocket.OPEN) {
-      state.socket.send(JSON.stringify({ type: 'control-result', approved: true }));
-    }
     broadcastState();
+    bridgeRequest('control', { code: state.code, host_token: state.token, grant: true }).catch(() => {});
     toast('Control approved. The controller can now use the mouse and keyboard in this tab.');
   } catch (error) {
     state.controlGranted = false;
@@ -340,10 +385,8 @@ async function approveControl() {
 function declineControl() {
   state.requestPending = false;
   state.controlGranted = false;
-  if (state.socket && state.socket.readyState === WebSocket.OPEN) {
-    state.socket.send(JSON.stringify({ type: 'control-result', approved: false }));
-  }
   broadcastState();
+  bridgeRequest('control', { code: state.code, host_token: state.token, grant: false }).catch(() => {});
   toast('Control request declined. The controller remains view-only.');
 }
 
@@ -361,6 +404,7 @@ async function revokeControl() {
   state.requestPending = false;
   await detachDebugger();
   broadcastState();
+  bridgeRequest('control', { code: state.code, host_token: state.token, grant: false }).catch(() => {});
   toast('Remote control revoked. The controller is view-only again.');
 }
 
@@ -464,7 +508,7 @@ function handleInput(message) {
 function startFrameLoop() {
   clearInterval(state.frameTimer);
   clearInterval(state.durationTimer);
-  state.frameTimer = setInterval(sendFrame, 125);
+  state.frameTimer = setInterval(sendFrame, 200);
   state.durationTimer = setInterval(updateDuration, 1000);
 }
 
@@ -476,9 +520,8 @@ function updateDuration() {
 }
 
 function sendFrame() {
-  if (state.ended || !state.controllerConnected || !state.relayOnline || !state.socket || state.socket.readyState !== WebSocket.OPEN) return;
+  if (state.ended || !state.controllerConnected || !state.registered || state.frameInFlight) return;
   if (!video.videoWidth || !video.videoHeight || video.readyState < 2) return;
-  if (state.socket.bufferedAmount > 1500000) return;
   const scale = Math.min(1, 1280 / video.videoWidth);
   const width = Math.max(1, Math.round(video.videoWidth * scale));
   const height = Math.max(1, Math.round(video.videoHeight * scale));
@@ -488,14 +531,23 @@ function sendFrame() {
   }
   ctx.drawImage(video, 0, 0, width, height);
   let data;
-  try { data = canvas.toDataURL('image/jpeg', 0.62); } catch (error) { return; }
-  state.socket.send(JSON.stringify({
-    type: 'frame',
+  try { data = canvas.toDataURL('image/jpeg', 0.58); } catch (error) { return; }
+  state.frameInFlight = true;
+  bridgeRequest('frame', {
+    code: state.code,
+    host_token: state.token,
     sequence: ++state.sequence,
     width,
     height,
     data
-  }));
+  }).catch(() => {
+    if (!state.ended) {
+      state.bridgeOnline = false;
+      render();
+    }
+  }).finally(() => {
+    state.frameInFlight = false;
+  });
   $('previewResolution').textContent = `${video.videoWidth} × ${video.videoHeight}`;
 }
 
@@ -508,7 +560,7 @@ async function persistSession() {
         targetTabId: state.targetTabId,
         startedAt: state.startedAt,
         code: state.code,
-        relayUrl: state.relayUrl
+        bridgeUrl: state.bridgeUrl
       }
     });
   } catch (error) {
@@ -551,10 +603,10 @@ async function startSharing() {
     showView('live');
     await injectBanner();
     await persistSession();
-    connectRelay();
+    connectBridge();
     startFrameLoop();
     render();
-    toast('Tab shared. Share the pairing code with someone you trust.');
+    toast('Tab shared. Send the bridge address and PIN to someone you trust.');
   } catch (error) {
     if (stream) stream.getTracks().forEach((track) => track.stop());
     state.stream = null;
@@ -581,14 +633,13 @@ async function stopSession(reason) {
   state.controllerConnected = false;
   state.requestPending = false;
   state.paused = false;
+  clearInterval(state.pollTimer);
   clearInterval(state.frameTimer);
   clearInterval(state.durationTimer);
-  if (state.socket && state.socket.readyState === WebSocket.OPEN) {
-    try {
-      state.socket.send(JSON.stringify({ type: 'host-end', token: state.token }));
-    } catch (error) {}
-    setTimeout(() => { try { state.socket.close(); } catch (error) {} }, 30);
+  if (state.registered && state.code) {
+    bridgeRequest('end', { code: state.code, host_token: state.token }, true).catch(() => {});
   }
+  state.registered = false;
   if (state.stream) state.stream.getTracks().forEach((track) => track.stop());
   state.stream = null;
   video.srcObject = null;
@@ -607,7 +658,7 @@ $('copyCode').addEventListener('click', async () => {
   if (!state.code) return;
   try {
     await navigator.clipboard.writeText(state.code);
-    toast('Pairing code copied.');
+    toast('PIN copied.');
   } catch (error) {
     const input = document.createElement('textarea');
     input.value = state.code;
@@ -615,18 +666,14 @@ $('copyCode').addEventListener('click', async () => {
     input.select();
     document.execCommand('copy');
     input.remove();
-    toast('Pairing code copied.');
+    toast('PIN copied.');
   }
-});
-$('openControllerButton').addEventListener('click', () => {
-  const url = controllerWebsiteUrl();
-  if (url) chrome.tabs.create({ url });
 });
 $('allowControlButton').addEventListener('click', approveControl);
 $('declineControlButton').addEventListener('click', declineControl);
 $('pauseControlButton').addEventListener('click', togglePause);
 $('revokeControlButton').addEventListener('click', revokeControl);
-$('retryRelayButton').addEventListener('click', connectRelay);
+$('retryRelayButton').addEventListener('click', connectBridge);
 $('stopButton').addEventListener('click', () => stopSession('Sharing stopped and the controller was disconnected.'));
 $('closeSessionButton').addEventListener('click', async () => {
   const current = await chrome.windows.getCurrent();

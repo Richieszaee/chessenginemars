@@ -4,7 +4,7 @@ const state = {
   pinDetectionSupported: true,
   manualPinned: false,
   tab: null,
-  relayUrl: 'ws://127.0.0.1:8787/ws',
+  bridgeUrl: 'http://127.0.0.1:8080/bridge.php',
   existingSession: null,
   loading: true,
   starting: false
@@ -15,37 +15,22 @@ function showError(message) {
   $('errorMessage').hidden = !message;
 }
 
-function parseRelay(value) {
+function parseBridge(value) {
   try {
     const url = new URL(value);
-    if (url.protocol === 'https:') url.protocol = 'wss:';
-    else if (url.protocol === 'http:') url.protocol = 'ws:';
-    if (!['ws:', 'wss:'].includes(url.protocol) || !url.hostname || url.username || url.password) return null;
-    if (url.pathname === '/' || url.pathname === '') url.pathname = '/ws';
+    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) return null;
+    if (url.pathname === '/' || url.pathname === '') url.pathname = '/bridge.php';
+    url.hash = '';
     return url;
   } catch (error) {
     return null;
   }
 }
 
-function websiteUrl() {
-  const relay = parseRelay((state.existingSession && state.existingSession.relayUrl) || state.relayUrl);
-  if (!relay) return '';
-  const url = new URL(relay.href);
-  url.protocol = relay.protocol === 'wss:' ? 'https:' : 'http:';
-  url.pathname = '/connect';
-  url.hash = '';
-  url.search = '';
-  const code = state.existingSession && state.existingSession.code;
-  if (code) url.searchParams.set('pin', code);
-  return url.href;
-}
-
-function relayLabel(value) {
-  const url = parseRelay(value);
+function bridgeLabel(value) {
+  const url = parseBridge(value);
   if (!url) return 'Invalid address';
-  const local = ['127.0.0.1', 'localhost', '::1'].includes(url.hostname);
-  return local ? 'Local' : url.host;
+  return ['127.0.0.1', 'localhost', '::1'].includes(url.hostname) ? 'Local PHP' : url.host;
 }
 
 async function checkPin() {
@@ -69,9 +54,13 @@ async function loadTab() {
 }
 
 function flash(button, label) {
-  const original = button.textContent;
-  button.textContent = label;
-  setTimeout(() => { button.textContent = original; }, 1200);
+  const original = button.querySelector('span') ? button.querySelector('span').textContent : button.textContent;
+  if (button.querySelector('span')) button.querySelector('span').textContent = label;
+  else button.textContent = label;
+  setTimeout(() => {
+    if (button.querySelector('span')) button.querySelector('span').textContent = original;
+    else button.textContent = original;
+  }, 1200);
 }
 
 async function copyText(text, button, successLabel) {
@@ -86,6 +75,17 @@ async function copyText(text, button, successLabel) {
     input.remove();
   }
   if (button && successLabel) flash(button, successLabel);
+}
+
+function inviteText() {
+  const session = state.existingSession;
+  if (!session || !session.code) return '';
+  return [
+    'Mars Live invite',
+    `Bridge: ${session.bridgeUrl || state.bridgeUrl}`,
+    `PIN: ${session.code}`,
+    'On the other computer: open Mars Live → Join with PIN.'
+  ].join('\n');
 }
 
 function render() {
@@ -107,13 +107,14 @@ function render() {
     : 'Pin Mars Live to get started.';
   $('manualPin').hidden = state.pinDetectionSupported || state.pinned;
 
-  $('relayValue').textContent = relayLabel(state.relayUrl);
-  $('relayUrl').value = state.relayUrl;
-  $('relayDot').style.background = parseRelay(state.relayUrl) ? 'var(--cyan)' : 'var(--danger)';
-  const relayValid = !!parseRelay(state.relayUrl);
-  const ready = state.pinned && supported && relayValid && !state.loading && !state.starting;
+  $('relayValue').textContent = bridgeLabel(state.bridgeUrl);
+  $('relayUrl').value = state.bridgeUrl;
+  $('relayDot').style.background = parseBridge(state.bridgeUrl) ? 'var(--cyan)' : 'var(--danger)';
+  const bridgeValid = !!parseBridge(state.bridgeUrl);
+  const ready = state.pinned && supported && bridgeValid && !state.loading && !state.starting;
   $('connectButton').disabled = active || !ready;
   $('connectLabel').textContent = state.starting ? 'Opening…' : 'Connect';
+  $('joinButton').disabled = active || !bridgeValid || state.loading;
   $('connectHint').textContent = !state.pinned
     ? 'Pin Mars Live to get started.'
     : !supported
@@ -123,8 +124,7 @@ function render() {
   const code = state.existingSession && state.existingSession.code;
   $('sessionPin').textContent = code || '······';
   $('copyPin').disabled = !code;
-  $('openWebsiteButton').disabled = !code || !websiteUrl();
-  $('copyInviteButton').disabled = !code || !websiteUrl();
+  $('copyInviteButton').disabled = !code || !bridgeValid;
 }
 
 async function refresh() {
@@ -132,9 +132,23 @@ async function refresh() {
   showError('');
   render();
   try {
-    const saved = await chrome.storage.local.get(['marsLiveRelayUrl', 'marsLiveSession']);
-    if (saved.marsLiveRelayUrl) state.relayUrl = saved.marsLiveRelayUrl;
+    const saved = await chrome.storage.local.get(['marsLiveBridgeUrl', 'marsLiveRelayUrl', 'marsLiveSession']);
+    if (saved.marsLiveBridgeUrl) {
+      state.bridgeUrl = saved.marsLiveBridgeUrl;
+    } else if (saved.marsLiveRelayUrl) {
+      try {
+        const old = new URL(saved.marsLiveRelayUrl);
+        old.protocol = old.protocol === 'wss:' ? 'https:' : 'http:';
+        old.pathname = '/bridge.php';
+        old.hash = '';
+        state.bridgeUrl = old.href;
+      } catch (error) {}
+    }
     state.existingSession = saved.marsLiveSession || null;
+    if (state.existingSession && !state.existingSession.bridgeUrl) {
+      state.existingSession = null;
+      await chrome.storage.local.remove('marsLiveSession');
+    }
     if (state.existingSession) {
       try {
         await chrome.windows.get(state.existingSession.windowId);
@@ -152,13 +166,13 @@ async function refresh() {
   }
 }
 
-async function ensureRelayPermission(url) {
-  const origin = `${url.protocol}//${url.hostname}/*`;
+async function ensureBridgePermission(url) {
+  const origin = `${url.protocol}//${url.host}/*`;
   try {
     if (await chrome.permissions.contains({ origins: [origin] })) return true;
     return await chrome.permissions.request({ origins: [origin] });
   } catch (error) {
-    throw new Error('Chrome could not approve the relay connection. Try Connection settings again.');
+    throw new Error('Chrome could not approve the PHP bridge. Try Connection settings again.');
   }
 }
 
@@ -170,18 +184,18 @@ $('manualPin').addEventListener('click', async () => {
 
 $('saveRelay').addEventListener('click', async () => {
   showError('');
-  const url = parseRelay($('relayUrl').value.trim());
+  const url = parseBridge($('relayUrl').value.trim());
   if (!url) {
-    showError('Paste an http://, https://, ws://, or wss:// relay address.');
+    showError('Paste the HTTP or HTTPS address of bridge.php.');
     $('relayUrl').focus();
     return;
   }
-  state.relayUrl = url.href;
+  state.bridgeUrl = url.href;
   try {
-    await chrome.storage.local.set({ marsLiveRelayUrl: state.relayUrl });
+    await chrome.storage.local.set({ marsLiveBridgeUrl: state.bridgeUrl });
     render();
   } catch (error) {
-    showError('The relay address could not be saved.');
+    showError('The PHP bridge address could not be saved.');
   }
 });
 
@@ -195,17 +209,17 @@ $('relayUrl').addEventListener('keydown', (event) => {
 $('connectButton').addEventListener('click', async () => {
   if (state.starting || state.existingSession) return;
   showError('');
-  const relay = parseRelay(state.relayUrl);
-  if (!relay || !state.tab || !state.pinned) return;
+  const bridge = parseBridge(state.bridgeUrl);
+  if (!bridge || !state.tab || !state.pinned) return;
   state.starting = true;
   render();
   try {
-    await ensureRelayPermission(relay);
+    await ensureBridgePermission(bridge);
     await chrome.storage.local.set({
-      marsLiveRelayUrl: relay.href,
+      marsLiveBridgeUrl: bridge.href,
       marsLivePending: {
         targetTabId: state.tab.id,
-        relayUrl: relay.href,
+        bridgeUrl: bridge.href,
         createdAt: Date.now()
       }
     });
@@ -224,20 +238,33 @@ $('connectButton').addEventListener('click', async () => {
   }
 });
 
+$('joinButton').addEventListener('click', async () => {
+  if (state.existingSession) return;
+  const bridge = parseBridge(state.bridgeUrl);
+  if (!bridge) return;
+  try {
+    await ensureBridgePermission(bridge);
+    await chrome.storage.local.set({ marsLiveBridgeUrl: bridge.href });
+    await chrome.windows.create({
+      url: chrome.runtime.getURL('controller.html'),
+      type: 'popup',
+      width: 1100,
+      height: 760
+    });
+  } catch (error) {
+    showError(error.message || 'The controller window could not open.');
+  }
+});
+
 $('copyPin').addEventListener('click', () => {
   if (state.existingSession && state.existingSession.code) {
     copyText(state.existingSession.code, $('copyPin'), 'Copied');
   }
 });
 
-$('openWebsiteButton').addEventListener('click', () => {
-  const url = websiteUrl();
-  if (url) chrome.tabs.create({ url });
-});
-
 $('copyInviteButton').addEventListener('click', () => {
-  const url = websiteUrl();
-  if (url) copyText(url, $('copyInviteButton'), 'Copied');
+  const text = inviteText();
+  if (text) copyText(text, $('copyInviteButton'), 'Copied');
 });
 
 $('openSessionButton').addEventListener('click', async () => {
