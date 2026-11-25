@@ -21,25 +21,19 @@
 
     <section id="setupView" class="view setup-view">
       <div class="setup-heading">
-        <p class="eyebrow">STEP 1 · CHOOSE WHAT TO SHARE</p>
+        <p class="eyebrow">STEP 1 · SHARE ONE TAB</p>
         <h1>One tab.<br><em>Your call.</em></h1>
-        <p class="lead">Chrome will ask you to choose the tab to share. Accepting that prompt is required before anything is captured.</p>
+        <p class="lead">Chrome will ask you which tab to share. Nothing is captured until you pick one.</p>
       </div>
 
       <div class="target-card">
         <div class="target-icon" aria-hidden="true">↗</div>
         <div class="target-copy">
-          <span class="mini-label">ACTIVE TAB WHEN YOU STARTED</span>
+          <span class="mini-label">THIS TAB</span>
           <h2 id="targetTitle">Reading target tab…</h2>
           <p id="targetUrl">Waiting for Chrome</p>
         </div>
         <span id="targetStatus" class="target-status">READY</span>
-      </div>
-
-      <div class="consent-list">
-        <div class="consent-row"><span>1</span><p><b>Share.</b> Only this tab is captured. Your screen, other tabs, and browser chrome are not.</p></div>
-        <div class="consent-row"><span>2</span><p><b>Approve control.</b> A controller starts view-only. Mouse and keyboard stay locked until you click <strong>Allow control</strong>.</p></div>
-        <div class="consent-row"><span>3</span><p><b>Stay in charge.</b> Use the live banner on the shared tab to pause or stop. Your local mouse always works.</p></div>
       </div>
 
       <p id="setupError" class="error" role="alert" hidden></p>
@@ -47,48 +41,36 @@
         <span id="shareLabel">Choose tab &amp; share</span>
         <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <p class="fine-print">Chrome’s native sharing bar stays visible while a session is live. Nothing is recorded or stored.</p>
+      <p class="fine-print">A controller can watch only after you allow it — and control is a separate yes. Your mouse always works.</p>
     </section>
 
     <section id="liveView" class="view live-view" hidden>
-      <div class="live-heading">
-        <div>
-          <p class="eyebrow"><span class="rec-dot"></span> LIVE TAB · YOUR MOUSE IS STILL LIVE</p>
-          <h1>Sharing on your terms.</h1>
+      <section class="pin-panel" aria-labelledby="pinTitle">
+        <div class="pin-head">
+          <span class="mini-label" id="pinTitle">YOUR PIN</span>
+          <span class="duration" id="duration">00:00</span>
         </div>
-        <span class="duration" id="duration">00:00</span>
-      </div>
+        <div class="pin-row">
+          <output id="pairCode" class="pin-code" aria-live="polite">······</output>
+          <button id="copyCode" class="pin-copy" type="button">Copy PIN</button>
+        </div>
+        <p id="pairHelp">On the other computer: open Mars Live → <b>Join with PIN</b>. Control stays locked until you allow it.</p>
+      </section>
 
       <div class="preview-card">
         <video id="preview" muted playsinline autoplay></video>
-        <div class="preview-shade"></div>
-        <span class="preview-label"><i></i> LIVE PREVIEW</span>
+        <span class="preview-label"><i></i> SHARING</span>
         <span class="preview-resolution" id="previewResolution">—</span>
       </div>
 
-      <section class="pair-card" aria-labelledby="pairTitle">
-        <div class="pair-copy">
-          <span class="mini-label">CONTROLLER PAIRING CODE</span>
-          <h2 id="pairTitle">One controller.<br>No standing access.</h2>
-          <p id="pairHelp">On the other computer, open Mars Live → Join with PIN. Control stays locked until you approve it.</p>
-        </div>
-        <div class="code-wrap">
-          <output id="pairCode" class="pair-code" aria-live="polite">······</output>
-          <button id="copyCode" class="copy-button" type="button">Copy PIN</button>
-        </div>
-      </section>
-
-      <section class="control-card" aria-labelledby="controlTitle">
+      <section class="control-card">
         <div class="control-title-row">
-          <div>
-            <span class="mini-label">REMOTE CONTROLLER</span>
-            <h2 id="controlTitle"><i id="controllerDot"></i><span id="controllerStatus">Waiting for controller</span></h2>
-          </div>
-          <span id="controlBadge" class="control-badge">VIEW ONLY</span>
+          <h2><i id="controllerDot"></i><span id="controllerStatus">Waiting for controller</span></h2>
+          <span id="controlBadge" class="control-badge">NO CONTROLLER</span>
         </div>
 
         <div id="requestPanel" class="request-panel" hidden>
-          <p><b>A controller is requesting mouse and keyboard control.</b><br>Approve only if you are watching and ready.</p>
+          <p><b>Someone wants mouse and keyboard control.</b></p>
           <div class="button-row">
             <button id="allowControlButton" class="primary-button small" type="button">Allow control</button>
             <button id="declineControlButton" class="secondary-button" type="button">Decline</button>
@@ -106,10 +88,9 @@
       </section>
 
       <div class="stop-row">
-        <p><strong>Need a hard stop?</strong> End sharing and disconnect the controller.</p>
+        <p><strong>Done?</strong> Stop sharing and disconnect.</p>
         <button id="stopButton" class="stop-button" type="button">Stop session</button>
       </div>
-      <p class="fine-print">Frames travel through your PHP bridge and are not stored there. Closing this window also ends the session.</p>
     </section>
 
     <section id="endedView" class="view ended-view" hidden>
@@ -120,7 +101,7 @@
       <div class="ended-checks">
         <p>✓ Capture stopped</p>
         <p>✓ Remote input disabled</p>
-        <p>✓ Pairing code no longer works</p>
+        <p>✓ PIN no longer works</p>
       </div>
       <button id="closeSessionButton" class="primary-button" type="button">Close this window</button>
     </section>

@@ -227,7 +227,7 @@ $('connectButton').addEventListener('click', async () => {
       url: chrome.runtime.getURL('session.html'),
       type: 'popup',
       width: 570,
-      height: 790
+      height: 700
     });
   } catch (error) {
     await chrome.storage.local.remove('marsLivePending').catch(() => {});
