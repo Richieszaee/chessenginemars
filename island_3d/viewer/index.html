@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏝️ Nusantara Giant Island — Interactive 3D GLB Viewer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a1622; font-family: 'Segoe UI', system-ui, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  #loading-screen {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #16324a, #0a1622 70%);
+    color: #eaf4ff; transition: opacity .7s ease; }
+  #loading-screen.hidden { opacity: 0; pointer-events: none; }
+  .loader-title { font-size: 2rem; font-weight: 600; letter-spacing: .04em; margin-bottom: 6px; }
+  .loader-sub { font-size: .95rem; color: #9cc4e8; margin-bottom: 26px; }
+  .progress-track { width: min(320px, 70vw); height: 8px; border-radius: 999px; background: #0c2236; overflow: hidden; }
+  .progress-bar { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #2fd6c0, #5ab2ff); transition: width .2s; }
+  .progress-label { margin-top: 10px; font-size: .8rem; color: #79a7cc; }
+
+  #top-bar {
+    position: fixed; top: 14px; left: 16px; right: 16px; z-index: 20;
+    display: flex; align-items: center; gap: 10px; pointer-events: none; flex-wrap: wrap; }
+  .brand-card {
+    pointer-events: auto; background: rgba(8, 20, 32, .82); border: 1px solid rgba(110, 170, 220, .25);
+    border-radius: 12px; padding: 8px 14px; color: #eaf4ff; backdrop-filter: blur(8px); }
+  .brand-card h1 { font-size: .95rem; font-weight: 600; letter-spacing: .03em; }
+  .brand-card p { font-size: .72rem; color: #9cc4e8; margin-top: 2px; }
+  .top-actions { pointer-events: auto; display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+
+  button, select, input { font-family: inherit; }
+  .btn {
+    background: rgba(8, 20, 32, .85); color: #d9ecff; border: 1px solid rgba(110, 170, 220, .3);
+    border-radius: 10px; padding: 8px 13px; font-size: .8rem; cursor: pointer; text-decoration: none;
+    display: inline-block; transition: all .15s; backdrop-filter: blur(8px); }
+  .btn:hover { background: rgba(30, 70, 105, .9); border-color: #5ab2ff; color: #fff; }
+  .btn.active { background: #1f6feb; border-color: #5ab2ff; color: #fff; }
+  .btn.download { background: linear-gradient(135deg, #0d8a72, #1f6feb); border-color: #5ab2ff; font-weight: 600; }
+
+  #side-panel {
+    position: fixed; top: 78px; right: 16px; width: 260px; z-index: 20;
+    background: rgba(8, 20, 32, .86); border: 1px solid rgba(110, 170, 220, .25);
+    border-radius: 14px; padding: 14px; color: #d9ecff; backdrop-filter: blur(10px);
+    max-height: calc(100vh - 100px); overflow-y: auto; }
+  #side-panel h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: #6fb6e6; margin: 12px 0 8px; }
+  #side-panel h2:first-child { margin-top: 0; }
+
+  .cam-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
+  .cam-btn {
+    text-align: left; background: rgba(20, 44, 66, .7); border: 1px solid rgba(110, 170, 220, .18);
+    color: #cfe6ff; border-radius: 8px; padding: 8px 10px; font-size: .78rem; cursor: pointer; transition: all .15s; }
+  .cam-btn:hover { background: rgba(38, 88, 130, .9); border-color: #5ab2ff; }
+  .cam-btn.active { background: #1f6feb; border-color: #5ab2ff; color: #fff; }
+
+  .slider-row { display: flex; align-items: center; gap: 8px; margin: 7px 0; font-size: .75rem; }
+  .slider-row label { flex: 0 0 74px; color: #9cc4e8; }
+  .slider-row input[type=range] { flex: 1; accent-color: #2fd6c0; }
+  .slider-row .val { flex: 0 0 34px; text-align: right; color: #eaf4ff; font-variant-numeric: tabular-nums; }
+
+  .layer-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: .78rem; }
+  .layer-row input { accent-color: #2fd6c0; }
+  .layer-row label { cursor: pointer; user-select: none; }
+  .layer-dot { width: 9px; height: 9px; border-radius: 3px; flex: 0 0 auto; }
+
+  #hud {
+    position: fixed; left: 16px; bottom: 14px; z-index: 20; display: flex; gap: 10px; flex-wrap: wrap; max-width: calc(100vw - 32px); }
+  .hud-card {
+    background: rgba(8, 20, 32, .82); border: 1px solid rgba(110, 170, 220, .25); border-radius: 10px;
+    padding: 7px 12px; color: #9cc4e8; font-size: .72rem; backdrop-filter: blur(8px); line-height: 1.5; }
+  .hud-card b { color: #eaf4ff; font-weight: 600; }
+  .hud-card kbd {
+    background: #14324a; border: 1px solid #2a5878; border-radius: 4px; padding: 0 5px;
+    color: #bfe0ff; font-size: .68rem; font-family: inherit; }
+
+  #toast {
+    position: fixed; top: 74px; left: 50%; transform: translateX(-50%) translateY(-16px); z-index: 40;
+    background: rgba(13, 138, 114, .95); color: #fff; padding: 9px 18px; border-radius: 10px;
+    font-size: .82rem; opacity: 0; pointer-events: none; transition: all .35s; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  #dl-help {
+    position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); z-index: 45;
+    background: rgba(8, 20, 32, .96); border: 1px solid #5ab2ff; border-radius: 14px;
+    padding: 14px 18px; width: min(560px, calc(100vw - 32px)); color: #eaf4ff;
+    backdrop-filter: blur(10px); display: none; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+  #dl-help.show { display: block; }
+  #dl-help h3 { font-size: .88rem; margin-bottom: 8px; }
+  #dl-help p { font-size: .74rem; color: #9cc4e8; margin-bottom: 8px; line-height: 1.5; }
+  #dl-help .url-row { display: flex; gap: 8px; }
+  #dl-help input {
+    flex: 1; background: #0c2236; border: 1px solid #2a5878; color: #bfe0ff;
+    border-radius: 8px; padding: 7px 10px; font-size: .74rem; font-family: monospace; }
+  #dl-help .close-x {
+    position: absolute; top: 8px; right: 12px; background: none; border: none;
+    color: #79a7cc; font-size: 1rem; cursor: pointer; }
+
+  @media (max-width: 720px) {
+    #side-panel { display: none; }
+    .brand-card p { display: none; }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./node_modules/three/build/three.module.js",
+    "three/addons/": "./node_modules/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="loading-screen">
+  <div class="loader-title">🏝️ Nusantara Giant Island</div>
+  <div class="loader-sub">Memuat island.glb — 26.2 MB GLTF Binary …</div>
+  <div class="progress-track"><div class="progress-bar" id="load-bar"></div></div>
+  <div class="progress-label" id="load-label">Menyiapkan 3D engine…</div>
+  <button class="btn" id="btn-retry" style="display:none;margin-top:14px">🔄 Coba Lagi</button>
+</div>
+
+<div id="top-bar">
+  <div class="brand-card">
+    <h1>🏝️ Nusantara Giant Island</h1>
+    <p>504m pulau raksasa · daun ber-tekstur · sungai · air terjun · gua kristal · desa · puing candi · mercusuar</p>
+  </div>
+  <div class="top-actions">
+    <button class="btn" id="btn-tour">▶️ Auto Tour</button>
+    <button class="btn" id="btn-fly">🎮 Mode Terbang (WASD)</button>
+    <button class="btn" id="btn-reset">⟲ Reset</button>
+    <a class="btn download" id="btn-download" href="/download/island.glb" download="island.glb">⬇️ Download island.glb</a>
+    <a class="btn" id="btn-open-glb" href="/download/island.glb" target="_blank" rel="noopener" title="Buka unduhan di tab baru">🔗 Tab Baru</a>
+  </div>
+</div>
+
+<div id="side-panel">
+  <h2>📍 Camera Tour</h2>
+  <div class="cam-grid" id="cam-grid"></div>
+
+  <h2>☀️ Pencahayaan</h2>
+  <div class="slider-row">
+    <label>Eksposur</label>
+    <input type="range" id="sl-exposure" min="0.2" max="2.5" step="0.05" value="1.0">
+    <span class="val" id="v-exposure">1.0</span>
+  </div>
+  <div class="slider-row">
+    <label>Sinar Matahari</label>
+    <input type="range" id="sl-sun" min="0" max="3" step="0.05" value="1.6">
+    <span class="val" id="v-sun">1.6</span>
+  </div>
+  <div class="slider-row">
+    <label>Langit</label>
+    <input type="range" id="sl-sky" min="0" max="2" step="0.05" value="1.0">
+    <span class="val" id="v-sky">1.0</span>
+  </div>
+  <div class="slider-row">
+    <label>Hour (sun)</label>
+    <input type="range" id="sl-hour" min="5" max="21" step="0.25" value="10.5">
+    <span class="val" id="v-hour">10:30</span>
+  </div>
+
+  <h2>🧩 Layer Model</h2>
+  <div id="layer-list"></div>
+</div>
+
+<div id="hud">
+  <div class="hud-card"><b>Orbit:</b> drag = putar · scroll = zoom · right-drag = geser</div>
+  <div class="hud-card"><b>Fly:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> gerak · <kbd>Q</kbd><kbd>E</kbd> naik/turun · mouse = arah</div>
+  <div class="hud-card" id="stats-card">—</div>
+</div>
+
+<div id="toast"></div>
+
+<div id="dl-help">
+  <button class="close-x" id="dl-help-close" title="Tutup">✖</button>
+  <h3>⬇️ Cara mengunduh island.glb (18 MB)</h3>
+  <p id="dl-help-status">Kalau unduhan tidak muncul otomatis (iframe preview kadang memblokir download), pakai salah satu cara ini:</p>
+  <div class="url-row">
+    <input type="text" id="dl-url" readonly onclick="this.select()">
+    <button class="btn" id="dl-copy">📋 Salin</button>
+    <a class="btn" id="dl-open" href="#" target="_blank" rel="noopener">🔗 Buka</a>
+  </div>
+  <p style="margin-top:8px">…atau ambil dari <b>panel file Arena</b> → <code>island.glb</code> → tombol unduh.</p>
+</div>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>

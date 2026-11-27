@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 node_modules/
 .island_3d_cache/
+island_3d/textures_processed/
